@@ -58,7 +58,7 @@ export interface EffectParams {
   rampIn: number;
   /** trailing fade of each band, fraction of the band width */
   rampOut: number;
-  /** transparent interval between bands (glass shows through), fraction of the cell */
+  /** transparent interval between bands (glass shows through), fraction of each pane+gap cycle */
   interval: number;
   /** overall brightness multiplier */
   bright: number;

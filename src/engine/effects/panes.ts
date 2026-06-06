@@ -96,24 +96,24 @@ void main(){
   float warp = (u_motion > 0.5) ? w01 * 0.5 : w01 - 0.5;
   float pos = warp * u_scale - u_time * u_speed;
 
-  float cellF = floor(pos);
-  float f = pos - cellF;                   // position within this band's cell
-
   // color field — sampled independently of the band index, so colour can vary within and
   // across a band: along the motion axis (spread), perpendicular (skew), and over time (drift)
   float ca = u + 0.5;
   float cp = dot(uv - 0.5, vec2(-dir.y, dir.x)) + 0.5;
   vec3 c = paletteSmooth(ca * u_color.x + cp * u_color.y + u_time * u_color.z);
 
-  // the band fills [0, 1-interval] of the cell; the rest is a transparent interval. inside
-  // the band, OPACITY ramps in then ramps out — so gaps are clear, not black.
-  float bw = 1.0 - clamp(u_interval, 0.0, 0.95);
+  // The pane is always one unit wide; interval expands the pane+gap cycle instead of
+  // stealing width from the pane. So increasing interval adds transparent space after
+  // each pane while the pane's ramp/hold/ramp shape stays the same.
+  float interval = clamp(u_interval, 0.0, 0.95);
+  float gap = interval / max(1.0 - interval, 0.05);
+  float cycle = 1.0 + gap;
+  float f = mod(pos, cycle);
   float ri = clamp(u_rampIn, 0.001, 1.0);
   float ro = clamp(u_rampOut, 0.001, 1.0);
   float env = 0.0;
-  if(f < bw){
-    float g = f / bw;
-    env = smoothstep(0.0, ri, g) * (1.0 - smoothstep(1.0 - ro, 1.0, g));
+  if(f < 1.0){
+    env = smoothstep(0.0, ri, f) * (1.0 - smoothstep(1.0 - ro, 1.0, f));
   }
   gl_FragColor = vec4(c * u_bright, env);
 }`;

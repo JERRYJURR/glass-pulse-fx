@@ -18,6 +18,9 @@ export const FRAME_MS = 1000 / FPS;
 export const CROP_W = 140;
 export const CROP_H = 40;
 
+/** Small controls sample at least this normalized span, so they keep the shared light phase. */
+export const MIN_SAMPLE_SPAN = 0.9;
+
 /** Per-kind shader crop scale — how much of the shader field a shape samples. */
 export const SHADER_SCALE: Record<Kind, number> = {
   pill: 1.6,

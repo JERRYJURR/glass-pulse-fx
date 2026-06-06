@@ -325,10 +325,10 @@ const fmtFor = (step: number, unit?: string) => (v: number) => {
 const targets: { id: string; kind: Kind; radius?: number }[] = [
   { id: 'b1', kind: 'pill' },
   { id: 'b2', kind: 'circle' },
-  { id: 'b3', kind: 'rect', radius: 12 },
+  { id: 'b3', kind: 'rect' },
   { id: 'b4', kind: 'tag' },
-  { id: 'b6', kind: 'icon', radius: 14 },
-  { id: 'b5', kind: 'card', radius: 20 },
+  { id: 'b6', kind: 'icon' },
+  { id: 'b5', kind: 'card' },
 ];
 const instances: GlassInstance[] = targets.map((t) => {
   const w = working();

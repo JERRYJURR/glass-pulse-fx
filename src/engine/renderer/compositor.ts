@@ -5,7 +5,7 @@
 // In degraded mode (no WebGL) the shader + bloom canvases are skipped: the frost
 // becomes a flat translucent fill and only the core + border render.
 
-import { DPR, CROP_W, CROP_H, SHADER_SCALE, BLOOM_MAX } from '../perf';
+import { DPR, CROP_W, CROP_H, SHADER_SCALE, BLOOM_MAX, MIN_SAMPLE_SPAN } from '../perf';
 import { withAlpha } from '../color';
 import { CLASS, STRUCT, assign } from '../../styles';
 import type { GlassSettings, Kind } from '../../types';
@@ -28,6 +28,7 @@ interface Bloom {
   ctx: CanvasRenderingContext2D;
   spread: number;
   scale: number;
+  blur: number;
 }
 
 export interface Compositor {
@@ -82,8 +83,8 @@ export function createCompositor(
     const bloomIn = mk('canvas', 'bloomIn') as HTMLCanvasElement;
     plasma = mk('canvas', 'shader') as HTMLCanvasElement;
     pctx = plasma.getContext('2d');
-    bOut = { el: bloomOut, ctx: bloomOut.getContext('2d')!, spread: 0, scale: 1 };
-    bIn = { el: bloomIn, ctx: bloomIn.getContext('2d')!, spread: 0, scale: 1 };
+    bOut = { el: bloomOut, ctx: bloomOut.getContext('2d')!, spread: 0, scale: 1, blur: 0 };
+    bIn = { el: bloomIn, ctx: bloomIn.getContext('2d')!, spread: 0, scale: 1, blur: 0 };
     nodes.push(bloomOut, bloomIn, plasma);
   }
   nodes.push(frost, coreClip, border);
@@ -97,18 +98,48 @@ export function createCompositor(
   let settings: GlassSettings | null = null;
   let fill = '#000000';
 
+  function clampRadius(value: number): number {
+    const min = Math.min(cssW, cssH);
+    return Math.max(0, Math.min(value, min / 2));
+  }
+
+  function radiusFromCssToken(token: string, percentBasis: number): number | null {
+    const value = parseFloat(token);
+    if (Number.isNaN(value)) return null;
+    return token.trim().endsWith('%') ? (percentBasis * value) / 100 : value;
+  }
+
+  function radiusFromCssValue(value: string): number | null {
+    const trimmed = value.trim();
+    if (!trimmed || trimmed === '0px') return 0;
+
+    const [horizontalPart, verticalPart = horizontalPart] = trimmed.split('/').map((part) => part.trim());
+    const horizontal = horizontalPart.split(/\s+/)[0];
+    const vertical = verticalPart.split(/\s+/)[0];
+    const rx = radiusFromCssToken(horizontal, cssW);
+    const ry = radiusFromCssToken(vertical, cssH);
+    if (rx == null && ry == null) return null;
+    if (rx == null) return ry;
+    if (ry == null) return rx;
+    return Math.min(rx, ry);
+  }
+
   function resolveRadius(): number {
     const min = Math.min(cssW, cssH);
     const r = opts.radius;
     if (r != null) {
-      if (typeof r === 'number') return Math.min(r, cssH / 2);
+      if (typeof r === 'number') return clampRadius(r);
       const s = r.trim();
       if (s === '50%') return min / 2;
-      if (s.endsWith('%')) return (min * parseFloat(s)) / 100;
+      if (s.endsWith('%')) {
+        const pct = parseFloat(s);
+        return Number.isNaN(pct) ? 0 : clampRadius((min * pct) / 100);
+      }
       const px = parseFloat(s);
-      if (!Number.isNaN(px)) return Math.min(px, cssH / 2);
+      if (!Number.isNaN(px)) return clampRadius(px);
     }
-    return kind === 'circle' ? min / 2 : cssH / 2;
+    if (kind === 'circle') return min / 2;
+    return clampRadius(radiusFromCssValue(getComputedStyle(el).borderRadius) ?? 0);
   }
 
   function layoutBloom(b: Bloom, size: number, level: number): void {
@@ -128,6 +159,7 @@ export function createCompositor(
     b.el.height = Math.max(1, Math.round(ch * scale));
     b.spread = spread;
     b.scale = scale;
+    b.blur = size;
   }
 
   function applyGlassStyle(): void {
@@ -181,11 +213,36 @@ export function createCompositor(
   function cropForButton(glCanvas: HTMLCanvasElement): Crop {
     const cw = glCanvas.width;
     const ch = glCanvas.height;
-    let srcW = (cssW * cw) / CROP_W / shaderScale;
-    let srcH = (cssH * ch) / CROP_H / shaderScale;
+    const sampleW = Math.max(cssW, CROP_W * shaderScale * MIN_SAMPLE_SPAN);
+    const sampleH = Math.max(cssH, CROP_H * shaderScale * MIN_SAMPLE_SPAN);
+    let srcW = (sampleW * cw) / CROP_W / shaderScale;
+    let srcH = (sampleH * ch) / CROP_H / shaderScale;
     if (srcW > cw) srcW = cw;
     if (srcH > ch) srcH = ch;
     return { sx: Math.max(0, (cw - srcW) / 2), sy: Math.max(0, (ch - srcH) / 2), srcW, srcH };
+  }
+
+  function bloomSourceInset(b: Bloom): number {
+    if (!settings) return 0;
+    if (b.blur <= 0) return 0;
+    const rim = settings.coreInset + Math.max(settings.coreBlur, b.blur) * 0.5;
+    const sourceInset = Math.max(2, b.blur, rim);
+    return Math.min(sourceInset, Math.max(0, Math.min(cssW, cssH) / 2 - 0.5));
+  }
+
+  function attenuateBloomCorners(ctx: CanvasRenderingContext2D, b: Bloom, dx: number, dy: number): void {
+    const min = Math.min(cssW, cssH);
+    if (b.blur <= 0) return;
+    if (cornerRadius <= 0 || cornerRadius >= min / 2 - 0.5) return;
+
+    const zone = Math.min(min / 2, cornerRadius + b.blur * 1.25) * b.scale;
+    const amount = Math.min(0.55, 0.14 + b.blur / 45);
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.fillStyle = `rgba(0, 0, 0, ${amount})`;
+    ctx.fillRect(dx, dy, zone, zone);
+    ctx.fillRect(dx + cssW * b.scale - zone, dy, zone, zone);
+    ctx.fillRect(dx, dy + cssH * b.scale - zone, zone, zone);
+    ctx.fillRect(dx + cssW * b.scale - zone, dy + cssH * b.scale - zone, zone, zone);
   }
 
   function paintBloom(b: Bloom, crop: Crop, glCanvas: HTMLCanvasElement): void {
@@ -202,6 +259,17 @@ export function createCompositor(
     ctx.roundRect(dx, dy, dW, dH, cornerRadius * s);
     ctx.clip();
     ctx.drawImage(glCanvas, crop.sx, crop.sy, crop.srcW, crop.srcH, dx, dy, dW, dH);
+
+    const inset = bloomSourceInset(b) * s;
+    const iW = dW - inset * 2;
+    const iH = dH - inset * 2;
+    if (iW > 0 && iH > 0) {
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.beginPath();
+      ctx.roundRect(dx + inset, dy + inset, iW, iH, Math.max(0, cornerRadius * s - inset));
+      ctx.fill();
+    }
+    attenuateBloomCorners(ctx, b, dx, dy);
     ctx.restore();
   }
 
