@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>metal-fx · settings presets</title>
+<style>
+  :root {
+    --bg: #08080a; --panel: #101013; --line: rgba(255,255,255,0.09); --line-strong: rgba(255,255,255,0.16);
+    --ink: #ededf0; --muted: #8a8a92; --faint: #5a5a62; --accent: #8fe3ff; --chip: rgba(255,255,255,0.06);
+    --btn-fill: #0d0d12;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  body.light {
+    --bg: #e9e9ec; --panel: #ffffff; --line: rgba(0,0,0,0.10); --line-strong: rgba(0,0,0,0.18);
+    --ink: #1a1a1f; --muted: #66666e; --faint: #9a9aa2; --accent: #1c7fa6; --chip: rgba(0,0,0,0.05);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: var(--sans); min-height: 100vh; padding: 48px 24px 64px; display: flex; flex-direction: column; align-items: center; gap: 40px; transition: background .25s, color .25s; }
+  .masthead { text-align: center; max-width: 680px; }
+  .kicker { font-family: var(--mono); font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--accent); margin: 0 0 14px; }
+  .masthead h1 { font-size: 26px; font-weight: 600; letter-spacing: -0.01em; margin: 0 0 12px; }
+  .masthead p { font-size: 14px; line-height: 1.65; color: var(--muted); margin: 0; }
+  .masthead code { font-family: var(--mono); font-size: 12.5px; color: var(--ink); background: var(--chip); padding: 1px 5px; border-radius: 4px; }
+
+  .stage { width: 100%; max-width: 820px; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 56px 100px; padding: 76px 48px; border: 1px solid var(--line); border-radius: 16px; background: var(--panel); transition: background .25s, border-color .25s; }
+  .cell { display: flex; flex-direction: column; align-items: center; gap: 18px; }
+  .cell .tag { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--faint); }
+
+  .mfx { position: relative; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; user-select: none; background: transparent; color: var(--ink); isolation: isolate; }
+  .mfx .bloomOut { position: absolute; pointer-events: none; z-index: 0; }
+  .mfx .bloomIn  { position: absolute; pointer-events: none; z-index: 1; }
+  .mfx .plasma   { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; }
+  .mfx .tint1    { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+  .mfx .tint2clip{ position: absolute; inset: 0; pointer-events: none; z-index: 4; overflow: hidden; }
+  .mfx .tint2    { position: absolute; }
+  .mfx .brd      { position: absolute; inset: 0; pointer-events: none; z-index: 5; }
+  .mfx .label    { position: relative; z-index: 6; }
+
+  .mfx.pill   { height: 52px; padding: 0 32px; border-radius: 999px; font-size: 15px; font-weight: 500; }
+  .mfx.circle { width: 64px; height: 64px; border-radius: 50%; font-size: 22px; }
+
+  .panel { width: 100%; max-width: 820px; border: 1px solid var(--line); border-radius: 16px; background: var(--panel); padding: 8px 4px; transition: background .25s, border-color .25s; }
+  .group-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--faint); padding: 16px 24px 4px; }
+  .row { display: grid; grid-template-columns: 150px 1fr 64px; align-items: center; gap: 18px; padding: 11px 24px; }
+  .row + .row, .group-label { border-top: 1px solid var(--line); }
+  .row label { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+  .row .val { font-family: var(--mono); font-size: 13px; color: var(--accent); text-align: right; }
+  input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 2px; background: var(--line-strong); border-radius: 2px; outline: none; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--ink); border: 3px solid var(--bg); box-shadow: 0 0 0 1px var(--line-strong); cursor: pointer; }
+  input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--ink); border: 3px solid var(--bg); cursor: pointer; }
+  input[type=color] { width: 40px; height: 26px; padding: 0; border: 1px solid var(--line-strong); border-radius: 6px; background: transparent; cursor: pointer; }
+  .segmented { display: flex; gap: 6px; }
+  .segmented button { flex: 1; font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); background: transparent; border: 1px solid var(--line); border-radius: 8px; padding: 7px 0; cursor: pointer; transition: border-color .15s, color .15s, background .15s; }
+  .segmented button:hover { color: var(--ink); border-color: var(--line-strong); }
+  .segmented button.on { color: var(--bg); background: var(--accent); border-color: var(--accent); }
+  .pausebtn { grid-column: 2 / 4; justify-self: start; font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); background: transparent; border: 1px solid var(--line); border-radius: 8px; padding: 7px 16px; cursor: pointer; }
+  .pausebtn:hover { color: var(--ink); border-color: var(--line-strong); }
+  .foot { max-width: 820px; font-family: var(--mono); font-size: 11.5px; line-height: 1.7; color: var(--faint); text-align: center; }
+</style>
+</head>
+<body>
+
+  <header class="masthead">
+    <p class="kicker">metal-fx · settings presets</p>
+    <h1>Per-theme defaults</h1>
+    <p>The <code>SETTINGS</code> object holds a full slider configuration per theme — dark is your spec, light is a placeholder to fill in. Switching <code>Dark / Light</code> loads that theme's preset. <code>Saturate</code> compensates for the chroma the frost veil eats.</p>
+  </header>
+
+  <section class="stage">
+    <div class="cell"><div class="mfx pill" id="b1"><span class="label">Upgrade to Pro</span></div><span class="tag">pill</span></div>
+    <div class="cell"><div class="mfx circle" id="b2"><span class="label">&uarr;</span></div><span class="tag">circle</span></div>
+    <div class="cell"><div class="mfx pill" id="b3"><span class="label">Get started</span></div><span class="tag">pill</span></div>
+  </section>
+
+  <section class="panel">
+    <div class="group-label">Glass</div>
+    <div class="row"><label>BG blur</label><input type="range" id="bgBlur" min="0" max="20" step="0.5" value="6"><span class="val" id="bgBlurVal">6.0px</span></div>
+    <div class="row"><label>Frost level</label><input type="range" id="frostOp" min="0.3" max="1" step="0.02" value="0.66"><span class="val" id="frostOpVal">0.66</span></div>
+    <div class="row"><label>Core inset</label><input type="range" id="inset" min="0" max="28" step="1" value="8"><span class="val" id="insetVal">8px</span></div>
+    <div class="row"><label>Core blur</label><input type="range" id="layerBlur" min="0" max="32" step="1" value="8"><span class="val" id="layerBlurVal">8px</span></div>
+    <div class="row"><label>Saturate</label><input type="range" id="saturate" min="1" max="2" step="0.05" value="1.3"><span class="val" id="saturateVal">1.30x</span></div>
+
+    <div class="group-label">Border</div>
+    <div class="row"><label>Width</label><input type="range" id="borderW" min="0" max="3" step="0.5" value="1"><span class="val" id="borderWVal">1.0px</span></div>
+    <div class="row"><label>Opacity</label><input type="range" id="borderOp" min="0" max="1" step="0.02" value="0.30"><span class="val" id="borderOpVal">0.30</span></div>
+    <div class="row"><label>Color</label><input type="color" id="borderColor" value="#808080"><span class="val"></span></div>
+
+    <div class="group-label">Inner bloom · tight, full bright</div>
+    <div class="row"><label>Size</label><input type="range" id="binSize" min="0" max="24" step="1" value="2"><span class="val" id="binSizeVal">2px</span></div>
+    <div class="row"><label>Level</label><input type="range" id="binOp" min="0" max="1" step="0.05" value="1"><span class="val" id="binOpVal">1.00</span></div>
+
+    <div class="group-label">Outer bloom · wide, gradual</div>
+    <div class="row"><label>Size</label><input type="range" id="boutSize" min="0" max="64" step="1" value="16"><span class="val" id="boutSizeVal">16px</span></div>
+    <div class="row"><label>Level</label><input type="range" id="boutOp" min="0" max="0.9" step="0.05" value="0.45"><span class="val" id="boutOpVal">0.45</span></div>
+
+    <div class="group-label">Material</div>
+    <div class="row"><label>Button fill</label><input type="color" id="fill" value="#0d0d12"><span class="val"></span></div>
+    <div class="row"><label>Effect</label><div class="segmented" id="presetSeg"><button data-preset="chromatic" class="on">Chromatic</button><button data-preset="silver">Silver</button><button data-preset="gold">Gold</button></div><span class="val"></span></div>
+    <div class="row"><label>Theme</label><div class="segmented" id="themeSeg"><button data-theme="dark" class="on">Dark</button><button data-theme="light">Light</button></div><span class="val"></span></div>
+    <div class="row"><label>Animation</label><button class="pausebtn" id="pauseBtn">Pause</button></div>
+  </section>
+
+  <p class="foot">one shared WebGL context · ~30fps · button fill is a CSS value the glass derives from, separate from the effect settings</p>
+
+<script>
+// ════════ SETTINGS PRESETS (the slider config, per theme) ════════
+const SETTINGS = {
+  dark: {
+    bgBlur: 6, frostOp: 0.66, inset: 8, layerBlur: 8, saturate: 1.3,
+    borderW: 1, borderOp: 0.30, borderColor: '#808080',   // hsl(0,0%,50%)
+    binSize: 2, binOp: 1.0,
+    boutSize: 16, boutOp: 0.45,
+  },
+  light: {
+    // ── PLACEHOLDER: drop your light-mode values here ──
+    bgBlur: 6, frostOp: 0.66, inset: 8, layerBlur: 8, saturate: 1.3,
+    borderW: 1, borderOp: 0.30, borderColor: '#808080',
+    binSize: 2, binOp: 1.0,
+    boutSize: 16, boutOp: 0.45,
+  },
+};
+// Button fill = the CSS surface color (NOT part of the effect settings)
+const FILL = { dark: '#0d0d12', light: '#eef0f3' };
+
+// ════════ EFFECT PRESETS (plasma palette, per theme) — exact metal-fx values ════════
+const PRESETS = {
+  chromatic: {
+    dark:  { colors:['#000000','#aae8ff','#c5fe9e','#f7888d','#0d0d0d'], direction:80, speed:1.2, intensity:2, scale:1.6, distortion:0.3, complexity:0.68, blur:1, vignette:0.26, vigOpacity:0.60, shaderOpacity:1 },
+    light: { colors:['#ffffff','#ffffff','#ffffff','#ffb3b3','#adadad'], direction:80, speed:1.2, intensity:2, scale:2.5, distortion:0.3, complexity:0.68, blur:1, vignette:0.24, vigOpacity:0.16, shaderOpacity:1 },
+  },
+  silver: {
+    dark:  { colors:['#000000','#dedede','#747270','#e5e5e5','#0d0d0d'], direction:80, speed:1.2, intensity:2, scale:2.5, distortion:0.3, complexity:0.68, blur:1, vignette:0.26, vigOpacity:0.60, shaderOpacity:0.88 },
+    light: { colors:['#f6f6f6','#ffffff','#ffffff','#f7f7f7','#c9c9c9'], direction:80, speed:1.2, intensity:2, scale:2.5, distortion:0.3, complexity:0.68, blur:1, vignette:0.20, vigOpacity:0.26, shaderOpacity:1 },
+  },
+  gold: {
+    dark:  { colors:['#000000','#ffffff','#ffffff','#f7d488','#0d0d0d'], direction:80, speed:1.0, intensity:2, scale:2.5, distortion:0.3, complexity:0.68, blur:1, vignette:0.26, vigOpacity:0.60, shaderOpacity:0.92 },
+    light: { colors:['#fff8e1','#fffbe0','#ffffff','#fff6d6','#d2c7a7'], direction:80, speed:1.2, intensity:2, scale:2.5, distortion:0.3, complexity:0.68, blur:1, vignette:0.22, vigOpacity:0.24, shaderOpacity:1 },
+  },
+};
+
+let theme = 'dark', presetName = 'chromatic';
+let fill = FILL.dark;
+const P = { ...SETTINGS.dark };
+const block = () => PRESETS[presetName][theme];
+const hexToRgb = h => { const n = parseInt(h.slice(1),16); return [((n>>16)&255)/255, ((n>>8)&255)/255, (n&255)/255]; };
+const hexToRgba = (h,a) => { const n = parseInt(h.slice(1),16); return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`; };
+
+const GL_SIZE = 96, DPR = Math.min(2, window.devicePixelRatio || 1);
+const glCanvas = document.createElement('canvas');
+glCanvas.width = Math.round(GL_SIZE*DPR); glCanvas.height = Math.round(GL_SIZE*DPR);
+const gl = glCanvas.getContext('webgl', { alpha:true, premultipliedAlpha:false, antialias:false, preserveDrawingBuffer:true });
+
+const VERT = `attribute vec2 a_position; void main(){ gl_Position = vec4(a_position,0.0,1.0); }`;
+const FRAG = `
+precision highp float;
+uniform vec2 u_resolution; uniform float u_time;
+uniform vec3 u_color1,u_color2,u_color3,u_color4,u_color5;
+uniform float u_alpha1,u_alpha2,u_alpha3,u_alpha4,u_alpha5;
+uniform float u_intensity,u_scale,u_direction,u_distortion,u_complexity;
+uniform float u_vignette,u_vigOpacity,u_blur,u_shaderOpacity;
+vec3 mod289(vec3 x){return x-floor(x*(1.0/289.0))*289.0;}
+vec2 mod289v2(vec2 x){return x-floor(x*(1.0/289.0))*289.0;}
+vec3 permute(vec3 x){return mod289((x*34.0+1.0)*x);}
+float snoise(vec2 v){
+  const vec4 C=vec4(0.211324865405187,0.366025403784439,-0.577350269189626,0.024390243902439);
+  vec2 i=floor(v+dot(v,C.yy)); vec2 x0=v-i+dot(i,C.xx);
+  vec2 i1=(x0.x>x0.y)?vec2(1.0,0.0):vec2(0.0,1.0);
+  vec4 x12=x0.xyxy+C.xxzz; x12.xy-=i1; i=mod289v2(i);
+  vec3 p=permute(permute(i.y+vec3(0.0,i1.y,1.0))+i.x+vec3(0.0,i1.x,1.0));
+  vec3 m=max(0.5-vec3(dot(x0,x0),dot(x12.xy,x12.xy),dot(x12.zw,x12.zw)),0.0);
+  m=m*m; m=m*m;
+  vec3 x_=2.0*fract(p*C.www)-1.0; vec3 h=abs(x_)-0.5;
+  vec3 ox=floor(x_+0.5); vec3 a0=x_-ox;
+  m*=1.79284291400159-0.85373472095314*(a0*a0+h*h);
+  vec3 g; g.x=a0.x*x0.x+h.x*x0.y; g.yz=a0.yz*x12.xz+h.yz*x12.yw;
+  return 130.0*dot(m,g);
+}
+float fbm(vec2 p,float oct){ float val=0.0,amp=0.5; int n=int(oct);
+  for(int i=0;i<7;i++){ if(i>=n)break; val+=amp*snoise(p); p*=2.0; amp*=0.5; } return val; }
+float nfbm(vec2 p){ return fbm(p,3.0+u_complexity*4.0); }
+vec3 palette(float t){
+  t=clamp(t,0.0,1.0); t=t*t*(3.0-2.0*t); float k=64.0;
+  float w1=u_alpha1*exp(-k*t*t), w2=u_alpha2*exp(-k*(t-0.25)*(t-0.25)),
+        w3=u_alpha3*exp(-k*(t-0.5)*(t-0.5)), w4=u_alpha4*exp(-k*(t-0.75)*(t-0.75)),
+        w5=u_alpha5*exp(-k*(t-1.0)*(t-1.0));
+  float total=w1+w2+w3+w4+w5+0.0001;
+  return (u_color1*w1+u_color2*w2+u_color3*w3+u_color4*w4+u_color5*w5)/total;
+}
+vec2 warp(vec2 p,float t){ float s=u_distortion*2.0;
+  return vec2(nfbm(p+vec2(t*0.1,0.0)), nfbm(p+vec2(0.0,t*0.12)+5.0))*s; }
+vec3 computeEffect(vec2 uv,float aspect,float t){
+  vec2 p=(uv-0.5)*u_scale; p.x*=aspect;
+  p+=vec2(cos(u_direction),sin(u_direction))*t*0.15;
+  float freq=3.0+u_complexity*8.0; float val=0.0;
+  val+=sin(p.x*freq+t); val+=sin(p.y*freq+t*1.3);
+  val+=sin((p.x+p.y)*freq*0.7+t*0.7); val+=sin(length(p)*freq*0.8-t*1.5);
+  vec2 w=warp(p,t); val+=(w.x+w.y)*u_distortion;
+  val=val*0.2*u_intensity+0.5;
+  return palette(clamp(val,0.0,1.0));
+}
+void main(){
+  vec2 uv=gl_FragCoord.xy/u_resolution; float aspect=u_resolution.x/u_resolution.y;
+  float t=u_time; vec3 col;
+  if(u_blur<0.01){ col=computeEffect(uv,aspect,t); }
+  else{ float r=u_blur*0.02;
+    col =computeEffect(uv,aspect,t)*0.4;
+    col+=computeEffect(uv+vec2(r,0.0),aspect,t)*0.15;
+    col+=computeEffect(uv+vec2(-r,0.0),aspect,t)*0.15;
+    col+=computeEffect(uv+vec2(0.0,r),aspect,t)*0.15;
+    col+=computeEffect(uv+vec2(0.0,-r),aspect,t)*0.15; }
+  col=pow(col,vec3(1.3));
+  float edgeDist=min(min(uv.x,1.0-uv.x),min(uv.y,1.0-uv.y));
+  float vigPx=40.0/min(u_resolution.x,u_resolution.y);
+  float vigRange=vigPx*(1.0+u_vignette*3.0);
+  float vig=edgeDist*edgeDist/(vigRange*vigRange); vig=smoothstep(0.0,1.0,vig);
+  col*=mix(1.0,vig,u_vignette*u_vigOpacity);
+  gl_FragColor=vec4(col, u_shaderOpacity);
+}`;
+
+function compile(type, src){ const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+  if(!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; }
+const program = gl.createProgram();
+gl.attachShader(program, compile(gl.VERTEX_SHADER, VERT));
+gl.attachShader(program, compile(gl.FRAGMENT_SHADER, FRAG));
+gl.linkProgram(program); gl.useProgram(program);
+gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+const vbuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vbuf);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, -1,1, 1,-1, 1,1]), gl.STATIC_DRAW);
+const posLoc = gl.getAttribLocation(program, 'a_position');
+gl.enableVertexAttribArray(posLoc); gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+const UNAMES = ['u_resolution','u_time','u_color1','u_color2','u_color3','u_color4','u_color5','u_alpha1','u_alpha2','u_alpha3','u_alpha4','u_alpha5','u_intensity','u_scale','u_direction','u_distortion','u_complexity','u_vignette','u_vigOpacity','u_blur','u_shaderOpacity'];
+const U = {}; for(const n of UNAMES) U[n] = gl.getUniformLocation(program, n);
+function uploadUniforms(){
+  const b = block();
+  gl.uniform2f(U.u_resolution, glCanvas.width, glCanvas.height);
+  for(let i=0;i<5;i++){ const c = hexToRgb(b.colors[i]); gl.uniform3f(U['u_color'+(i+1)], c[0],c[1],c[2]); gl.uniform1f(U['u_alpha'+(i+1)], 1); }
+  gl.uniform1f(U.u_intensity, b.intensity); gl.uniform1f(U.u_scale, b.scale);
+  gl.uniform1f(U.u_direction, b.direction*Math.PI/180);
+  gl.uniform1f(U.u_distortion, b.distortion); gl.uniform1f(U.u_complexity, b.complexity);
+  gl.uniform1f(U.u_vignette, b.vignette); gl.uniform1f(U.u_vigOpacity, b.vigOpacity);
+  gl.uniform1f(U.u_blur, b.blur); gl.uniform1f(U.u_shaderOpacity, b.shaderOpacity);
+}
+uploadUniforms();
+
+let startMs = performance.now(), pausedMs = 0, pausedAt = null, paused = false;
+const nowT = () => (performance.now() - startMs - pausedMs) / 1000;
+function renderGL(){
+  gl.viewport(0,0,glCanvas.width,glCanvas.height);
+  gl.clearColor(0,0,0,0); gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.uniform1f(U.u_time, nowT() * block().speed);
+  gl.drawArrays(gl.TRIANGLES, 0, 6);
+}
+
+const instances = [];
+const mk = (tag, cls) => { const e = document.createElement(tag); e.className = cls; return e; };
+
+function createInstance(el, kind){
+  const label = el.querySelector('.label');
+  const bloomOut = mk('canvas','bloomOut'), bloomIn = mk('canvas','bloomIn');
+  const plasma = mk('canvas','plasma');
+  const tint1 = mk('div','tint1'), tint2clip = mk('div','tint2clip'), tint2 = mk('div','tint2');
+  const brd = mk('div','brd');
+  tint2clip.appendChild(tint2);
+  for(const node of [bloomOut, bloomIn, plasma, tint1, tint2clip, brd]) el.insertBefore(node, label);
+  const inst = { el, kind, plasma, tint1, tint2clip, tint2, brd,
+    pctx: plasma.getContext('2d'),
+    bloomIn:  { el: bloomIn,  ctx: bloomIn.getContext('2d'),  spread:0, scale:1 },
+    bloomOut: { el: bloomOut, ctx: bloomOut.getContext('2d'), spread:0, scale:1 },
+    cssW:0, cssH:0, cornerRadius:0, shaderScale: kind==='circle' ? 1.3 : 1.6 };
+  instances.push(inst); measure(inst);
+  new ResizeObserver(() => measure(inst)).observe(el);
+  return inst;
+}
+
+function measure(inst){
+  const r = inst.el.getBoundingClientRect();
+  inst.cssW = Math.max(1, Math.round(r.width)); inst.cssH = Math.max(1, Math.round(r.height));
+  inst.cornerRadius = inst.kind === 'circle' ? Math.min(inst.cssW, inst.cssH)/2 : inst.cssH/2;
+  inst.plasma.width = Math.round(inst.cssW*DPR); inst.plasma.height = Math.round(inst.cssH*DPR);
+  inst.plasma.style.borderRadius = inst.cornerRadius + 'px';
+  inst.tint1.style.borderRadius = inst.cornerRadius + 'px';
+  inst.tint2clip.style.borderRadius = inst.cornerRadius + 'px';
+  layoutBloom(inst, inst.bloomOut, P.boutSize, P.boutOp);
+  layoutBloom(inst, inst.bloomIn,  P.binSize,  P.binOp);
+  applyGlassStyle(inst); applyBorder(inst);
+}
+
+function layoutBloom(inst, b, blurCss, op){
+  const spread = Math.ceil(blurCss * 2.2) + 5;
+  const cw = inst.cssW + spread*2, ch = inst.cssH + spread*2;
+  b.el.style.left = -spread+'px'; b.el.style.top = -spread+'px';
+  b.el.style.width = cw+'px'; b.el.style.height = ch+'px';
+  b.el.style.filter = `blur(${blurCss}px)`;
+  b.el.style.opacity = String(op);
+  const scale = Math.min(DPR, 240 / Math.max(cw, ch));
+  b.el.width = Math.max(1, Math.round(cw*scale));
+  b.el.height = Math.max(1, Math.round(ch*scale));
+  b.spread = spread; b.scale = scale;
+}
+
+function applyGlassStyle(inst){
+  const cr = inst.cornerRadius;
+  inst.tint1.style.background = hexToRgba(fill, P.frostOp);
+  const bf = `saturate(${P.saturate}) blur(${P.bgBlur}px)`;   // saturate compensates the veil
+  inst.tint1.style.backdropFilter = bf;
+  inst.tint1.style.webkitBackdropFilter = bf;
+  inst.tint2.style.inset = P.inset + 'px';
+  inst.tint2.style.borderRadius = Math.max(0, cr - P.inset) + 'px';
+  inst.tint2.style.background = fill;
+  inst.tint2.style.filter = `blur(${P.layerBlur}px)`;
+}
+function applyBorder(inst){
+  inst.brd.style.borderRadius = inst.cornerRadius + 'px';
+  inst.brd.style.border = `${P.borderW}px solid ${hexToRgba(P.borderColor, P.borderOp)}`;
+}
+
+function cropForButton(inst){
+  const cw = glCanvas.width, ch = glCanvas.height;
+  let srcW = inst.cssW * cw / 140 / inst.shaderScale;
+  let srcH = inst.cssH * ch / 40  / inst.shaderScale;
+  if(srcW > cw) srcW = cw; if(srcH > ch) srcH = ch;
+  return { sx: Math.max(0,(cw-srcW)/2), sy: Math.max(0,(ch-srcH)/2), srcW, srcH };
+}
+function paintBloom(inst, b, crop){
+  const ctx = b.ctx, W = b.el.width, H = b.el.height, s = b.scale, sp = b.spread;
+  ctx.clearRect(0,0,W,H);
+  const dx = sp*s, dy = sp*s, dW = inst.cssW*s, dH = inst.cssH*s;
+  ctx.save();
+  ctx.beginPath(); ctx.roundRect(dx, dy, dW, dH, inst.cornerRadius*s); ctx.clip();
+  ctx.drawImage(glCanvas, crop.sx, crop.sy, crop.srcW, crop.srcH, dx, dy, dW, dH);
+  ctx.restore();
+}
+function paint(inst){
+  const crop = cropForButton(inst);
+  paintBloom(inst, inst.bloomOut, crop);
+  paintBloom(inst, inst.bloomIn, crop);
+  const ctx = inst.pctx, dw = inst.plasma.width, dh = inst.plasma.height;
+  if(dw < 1 || dh < 1) return;
+  ctx.clearRect(0,0,dw,dh);
+  ctx.drawImage(glCanvas, crop.sx, crop.sy, crop.srcW, crop.srcH, 0,0,dw,dh);
+}
+
+let last = 0; const FRAME = 1000/30;
+function tick(now){
+  requestAnimationFrame(tick);
+  if(now - last < FRAME) return; last = now;
+  if(!paused) renderGL();
+  for(const inst of instances) paint(inst);
+}
+
+createInstance(document.getElementById('b1'), 'pill');
+createInstance(document.getElementById('b2'), 'circle');
+createInstance(document.getElementById('b3'), 'pill');
+
+const $ = id => document.getElementById(id);
+const restyleGlass  = () => { for(const i of instances) applyGlassStyle(i); };
+const restyleBorder = () => { for(const i of instances) applyBorder(i); };
+const relayoutBlooms = () => { for(const i of instances){ layoutBloom(i, i.bloomOut, P.boutSize, P.boutOp); layoutBloom(i, i.bloomIn, P.binSize, P.binOp); } };
+
+// push P + fill into every control + restyle (used on load and theme switch)
+function refreshUI(){
+  $('bgBlur').value=P.bgBlur;     $('bgBlurVal').textContent=P.bgBlur.toFixed(1)+'px';
+  $('frostOp').value=P.frostOp;   $('frostOpVal').textContent=P.frostOp.toFixed(2);
+  $('inset').value=P.inset;       $('insetVal').textContent=P.inset+'px';
+  $('layerBlur').value=P.layerBlur; $('layerBlurVal').textContent=P.layerBlur+'px';
+  $('saturate').value=P.saturate; $('saturateVal').textContent=P.saturate.toFixed(2)+'x';
+  $('borderW').value=P.borderW;   $('borderWVal').textContent=P.borderW.toFixed(1)+'px';
+  $('borderOp').value=P.borderOp; $('borderOpVal').textContent=P.borderOp.toFixed(2);
+  $('borderColor').value=P.borderColor;
+  $('binSize').value=P.binSize;   $('binSizeVal').textContent=P.binSize+'px';
+  $('binOp').value=P.binOp;       $('binOpVal').textContent=P.binOp.toFixed(2);
+  $('boutSize').value=P.boutSize; $('boutSizeVal').textContent=P.boutSize+'px';
+  $('boutOp').value=P.boutOp;     $('boutOpVal').textContent=P.boutOp.toFixed(2);
+  $('fill').value = fill;
+  document.documentElement.style.setProperty('--btn-fill', fill);
+  restyleGlass(); restyleBorder(); relayoutBlooms();
+}
+
+$('bgBlur').addEventListener('input', e => { P.bgBlur=+e.target.value; $('bgBlurVal').textContent=P.bgBlur.toFixed(1)+'px'; restyleGlass(); });
+$('frostOp').addEventListener('input', e => { P.frostOp=+e.target.value; $('frostOpVal').textContent=P.frostOp.toFixed(2); restyleGlass(); });
+$('inset').addEventListener('input', e => { P.inset=+e.target.value; $('insetVal').textContent=P.inset+'px'; restyleGlass(); });
+$('layerBlur').addEventListener('input', e => { P.layerBlur=+e.target.value; $('layerBlurVal').textContent=P.layerBlur+'px'; restyleGlass(); });
+$('saturate').addEventListener('input', e => { P.saturate=+e.target.value; $('saturateVal').textContent=P.saturate.toFixed(2)+'x'; restyleGlass(); });
+$('borderW').addEventListener('input', e => { P.borderW=+e.target.value; $('borderWVal').textContent=P.borderW.toFixed(1)+'px'; restyleBorder(); });
+$('borderOp').addEventListener('input', e => { P.borderOp=+e.target.value; $('borderOpVal').textContent=P.borderOp.toFixed(2); restyleBorder(); });
+$('borderColor').addEventListener('input', e => { P.borderColor=e.target.value; restyleBorder(); });
+$('binSize').addEventListener('input', e => { P.binSize=+e.target.value; $('binSizeVal').textContent=P.binSize+'px'; relayoutBlooms(); });
+$('binOp').addEventListener('input', e => { P.binOp=+e.target.value; $('binOpVal').textContent=P.binOp.toFixed(2); relayoutBlooms(); });
+$('boutSize').addEventListener('input', e => { P.boutSize=+e.target.value; $('boutSizeVal').textContent=P.boutSize+'px'; relayoutBlooms(); });
+$('boutOp').addEventListener('input', e => { P.boutOp=+e.target.value; $('boutOpVal').textContent=P.boutOp.toFixed(2); relayoutBlooms(); });
+$('fill').addEventListener('input', e => { fill=e.target.value; FILL[theme]=fill; document.documentElement.style.setProperty('--btn-fill', fill); restyleGlass(); });
+
+$('presetSeg').addEventListener('click', e => {
+  const btn = e.target.closest('button'); if(!btn) return;
+  presetName = btn.dataset.preset; uploadUniforms();
+  [...e.currentTarget.children].forEach(b => b.classList.toggle('on', b === btn));
+});
+$('themeSeg').addEventListener('click', e => {
+  const btn = e.target.closest('button'); if(!btn) return;
+  setTheme(btn.dataset.theme);
+  [...e.currentTarget.children].forEach(b => b.classList.toggle('on', b === btn));
+});
+function setTheme(t){
+  theme = t;
+  document.body.classList.toggle('light', t === 'light');
+  fill = FILL[t];
+  Object.assign(P, SETTINGS[t]);   // load this theme's settings preset
+  refreshUI();
+  uploadUniforms();
+}
+
+const pauseBtn = $('pauseBtn');
+pauseBtn.addEventListener('click', () => {
+  paused = !paused;
+  if(paused){ pausedAt = performance.now(); pauseBtn.textContent = 'Resume'; }
+  else { pausedMs += performance.now() - pausedAt; pausedAt = null; pauseBtn.textContent = 'Pause'; }
+});
+
+refreshUI();
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>

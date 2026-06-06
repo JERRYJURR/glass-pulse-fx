@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>glass-pulse-fx · preset lab</title>
+<link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="sb-head">
+        <p class="kicker">glass-pulse-fx</p>
+        <h1>Preset lab</h1>
+        <p class="sub">Original shaders · save full-look presets per theme</p>
+      </div>
+
+      <div class="group">
+        <div class="group-label">Preset <span class="dirty" id="dirtyDot" title="unsaved changes" hidden>●</span></div>
+        <div class="prow"><select id="presetSelect"></select></div>
+        <div class="prow">
+          <div class="btnbar">
+            <button id="saveBtn">Save</button>
+            <button id="saveAsBtn">Save as…</button>
+            <button id="renameBtn">Rename</button>
+            <button id="deleteBtn">Delete</button>
+            <button id="revertBtn">Revert</button>
+            <button id="ioToggle">JSON</button>
+          </div>
+        </div>
+        <div class="prow io-row" id="ioRow" hidden>
+          <textarea id="ioText" spellcheck="false" placeholder="Active preset JSON — edit and Load, or paste a preset to import."></textarea>
+          <div class="btnbar">
+            <button id="exportBtn">Copy active</button>
+            <button id="loadBtn">Load</button>
+            <span class="io-msg" id="ioMsg"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="group-label">Shader</div>
+        <div class="prow">
+          <div class="segmented" id="shaderSeg">
+            <button data-effect="panes" class="on">Panes</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="group-label" id="effectLabel">Effect parameters</div>
+        <div id="effectControls"></div>
+      </div>
+
+      <div class="group">
+        <div class="group-label">Glass</div>
+        <div id="glassControls"></div>
+      </div>
+
+      <div class="group">
+        <div class="group-label">Border</div>
+        <div id="borderControls"></div>
+        <div class="prow inline"><label>Color</label><input type="color" id="borderColor" /></div>
+      </div>
+
+      <div class="group">
+        <div class="group-label">Inner bloom · tight</div>
+        <div id="innerControls"></div>
+      </div>
+
+      <div class="group">
+        <div class="group-label">Outer bloom · wide</div>
+        <div id="outerControls"></div>
+      </div>
+
+      <div class="group">
+        <div class="group-label">Material</div>
+        <div class="prow inline"><label>Button fill</label><input type="color" id="fill" /></div>
+        <div class="prow inline"><label>Theme</label>
+          <div class="segmented" id="themeSeg">
+            <button data-theme="dark" class="on">Dark</button>
+            <button data-theme="light">Light</button>
+          </div>
+        </div>
+        <div class="prow inline"><label>Animation</label><button class="pausebtn" id="pauseBtn">Pause</button></div>
+      </div>
+    </aside>
+
+    <main class="canvas-area">
+      <div class="masthead">
+        <h2>Shapes &amp; materials</h2>
+        <p>Six mockups, one shared shader. Tune in the sidebar; saved presets capture the shader, its params, and the glass material for both themes.</p>
+      </div>
+      <section class="stage">
+        <div class="cell"><div class="mfx pill" id="b1"><span class="label">Upgrade to Pro</span></div><span class="tag-l">pill</span></div>
+        <div class="cell"><div class="mfx circle" id="b2"><span class="label">&uarr;</span></div><span class="tag-l">circle</span></div>
+        <div class="cell"><div class="mfx rect" id="b3"><span class="label">Get started</span></div><span class="tag-l">rounded-rect</span></div>
+        <div class="cell"><div class="mfx tag" id="b4"><span class="label">New</span></div><span class="tag-l">tag</span></div>
+        <div class="cell"><div class="mfx icon" id="b6"><span class="label">★</span></div><span class="tag-l">icon</span></div>
+        <div class="cell wide"><div class="mfx card" id="b5"><div class="label"><strong>Glass card</strong><span>A larger surface showing the material as a panel — heading, body copy, and a lit rim.</span></div></div><span class="tag-l">card</span></div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module" src="./main.ts"></script>
+</body>
+</html>
