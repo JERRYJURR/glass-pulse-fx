@@ -7,6 +7,7 @@ export const PREFIX = 'gpfx';
 export const CLASS = {
   bloomOut: `${PREFIX}-bloom-out`,
   bloomIn: `${PREFIX}-bloom-in`,
+  surfaceClip: `${PREFIX}-surface-clip`,
   shader: `${PREFIX}-shader`,
   frost: `${PREFIX}-frost`,
   coreClip: `${PREFIX}-core-clip`,
@@ -16,18 +17,22 @@ export const CLASS = {
 
 type Style = Partial<CSSStyleDeclaration>;
 
-// z-order, bottom -> top: blooms, shader, frost, core, border, then content (the children).
+// z-order, bottom -> top: blooms, masked surface, border, then content (the children).
 export const STRUCT: Record<keyof typeof CLASS, Style> = {
   bloomOut: { position: 'absolute', pointerEvents: 'none', zIndex: '0' },
   bloomIn: { position: 'absolute', pointerEvents: 'none', zIndex: '1' },
+  surfaceClip: {
+    position: 'absolute', inset: '0', pointerEvents: 'none',
+    zIndex: '2', overflow: 'hidden',
+  },
   shader: {
     position: 'absolute', inset: '0', width: '100%', height: '100%',
-    pointerEvents: 'none', zIndex: '2',
+    pointerEvents: 'none', zIndex: '0',
   },
-  frost: { position: 'absolute', inset: '0', pointerEvents: 'none', zIndex: '3' },
+  frost: { position: 'absolute', inset: '0', pointerEvents: 'none', zIndex: '1' },
   coreClip: {
     position: 'absolute', inset: '0', pointerEvents: 'none',
-    zIndex: '4', overflow: 'hidden',
+    zIndex: '2', overflow: 'hidden',
   },
   core: { position: 'absolute' },
   border: { position: 'absolute', inset: '0', pointerEvents: 'none', zIndex: '5' },

@@ -1,4 +1,4 @@
-// Per-instance layer stack + painting. Builds the 6 DOM layers behind the content,
+// Per-instance layer stack + painting. Builds the DOM layers behind the content,
 // measures geometry, applies the frost/core/border styles, and copies crops of the
 // shared GL canvas into the shader + bloom canvases each frame.
 //
@@ -16,6 +16,12 @@ const supportsBackdrop =
   (CSS.supports('backdrop-filter', 'blur(1px)') ||
     CSS.supports('-webkit-backdrop-filter', 'blur(1px)'));
 
+const supportsMask =
+  typeof CSS !== 'undefined' &&
+  typeof CSS.supports === 'function' &&
+  (CSS.supports('mask-image', 'linear-gradient(#000, #000)') ||
+    CSS.supports('-webkit-mask-image', 'linear-gradient(#000, #000)'));
+
 interface Crop {
   sx: number;
   sy: number;
@@ -29,6 +35,7 @@ interface Bloom {
   spread: number;
   scale: number;
   blur: number;
+  enabled: boolean;
 }
 
 export interface Compositor {
@@ -53,6 +60,15 @@ function mk<K extends keyof typeof CLASS>(
   return e;
 }
 
+function roundedRectMaskUrl(width: number, height: number, radius: number): string {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none"><rect width="${width}" height="${height}" rx="${radius}" ry="${radius}" fill="white"/></svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
+
+function bloomEnabled(size: number, level: number): boolean {
+  return size > 0 && level > 0;
+}
+
 export function createCompositor(
   el: HTMLElement,
   kind: Kind,
@@ -66,6 +82,7 @@ export function createCompositor(
   if (cs.position === 'static') el.style.position = 'relative';
   el.style.isolation = 'isolate';
 
+  const surfaceClip = mk('div', 'surfaceClip');
   const frost = mk('div', 'frost');
   const coreClip = mk('div', 'coreClip');
   const core = mk('div', 'core');
@@ -83,11 +100,13 @@ export function createCompositor(
     const bloomIn = mk('canvas', 'bloomIn') as HTMLCanvasElement;
     plasma = mk('canvas', 'shader') as HTMLCanvasElement;
     pctx = plasma.getContext('2d');
-    bOut = { el: bloomOut, ctx: bloomOut.getContext('2d')!, spread: 0, scale: 1, blur: 0 };
-    bIn = { el: bloomIn, ctx: bloomIn.getContext('2d')!, spread: 0, scale: 1, blur: 0 };
-    nodes.push(bloomOut, bloomIn, plasma);
+    bOut = { el: bloomOut, ctx: bloomOut.getContext('2d')!, spread: 0, scale: 1, blur: 0, enabled: false };
+    bIn = { el: bloomIn, ctx: bloomIn.getContext('2d')!, spread: 0, scale: 1, blur: 0, enabled: false };
+    surfaceClip.appendChild(plasma);
+    nodes.push(bloomOut, bloomIn);
   }
-  nodes.push(frost, coreClip, border);
+  surfaceClip.append(frost, coreClip);
+  nodes.push(surfaceClip, border);
 
   const first = el.firstChild;
   for (const n of nodes) el.insertBefore(n, first);
@@ -143,10 +162,26 @@ export function createCompositor(
   }
 
   function layoutBloom(b: Bloom, size: number, level: number): void {
+    b.enabled = bloomEnabled(size, level);
+    if (!b.enabled) {
+      assign(b.el, {
+        display: 'none',
+        filter: 'none',
+        opacity: '0',
+      });
+      b.el.width = 1;
+      b.el.height = 1;
+      b.spread = 0;
+      b.scale = 1;
+      b.blur = 0;
+      return;
+    }
+
     const spread = Math.ceil(size * 2.2) + 5;
     const cw = cssW + spread * 2;
     const ch = cssH + spread * 2;
     assign(b.el, {
+      display: 'block',
       left: -spread + 'px',
       top: -spread + 'px',
       width: cw + 'px',
@@ -189,6 +224,25 @@ export function createCompositor(
     )}`;
   }
 
+  function applySurfaceClip(): void {
+    if (!supportsMask) {
+      surfaceClip.style.overflow = 'hidden';
+      surfaceClip.style.borderRadius = cornerRadius + 'px';
+      return;
+    }
+
+    const mask = roundedRectMaskUrl(cssW, cssH, cornerRadius);
+    const webkitStyle = surfaceClip.style as unknown as Record<string, string>;
+    surfaceClip.style.overflow = 'visible';
+    surfaceClip.style.borderRadius = '0';
+    surfaceClip.style.maskImage = mask;
+    surfaceClip.style.maskSize = '100% 100%';
+    surfaceClip.style.maskRepeat = 'no-repeat';
+    webkitStyle.webkitMaskImage = mask;
+    webkitStyle.webkitMaskSize = '100% 100%';
+    webkitStyle.webkitMaskRepeat = 'no-repeat';
+  }
+
   function measure(): void {
     const r = el.getBoundingClientRect();
     cssW = Math.max(1, Math.round(r.width));
@@ -198,10 +252,8 @@ export function createCompositor(
     if (plasma) {
       plasma.width = Math.round(cssW * DPR);
       plasma.height = Math.round(cssH * DPR);
-      plasma.style.borderRadius = cornerRadius + 'px';
     }
-    frost.style.borderRadius = cornerRadius + 'px';
-    coreClip.style.borderRadius = cornerRadius + 'px';
+    applySurfaceClip();
 
     if (!settings) return;
     if (bOut) layoutBloom(bOut, settings.outerBloom.size, settings.outerBloom.level);
@@ -246,6 +298,7 @@ export function createCompositor(
   }
 
   function paintBloom(b: Bloom, crop: Crop, glCanvas: HTMLCanvasElement): void {
+    if (!b.enabled) return;
     const ctx = b.ctx;
     const s = b.scale;
     const sp = b.spread;
@@ -276,8 +329,8 @@ export function createCompositor(
   function paint(glCanvas: HTMLCanvasElement): void {
     if (!plasma || !pctx) return;
     const crop = cropForButton(glCanvas);
-    if (bOut) paintBloom(bOut, crop, glCanvas);
-    if (bIn) paintBloom(bIn, crop, glCanvas);
+    if (bOut?.enabled) paintBloom(bOut, crop, glCanvas);
+    if (bIn?.enabled) paintBloom(bIn, crop, glCanvas);
     const dw = plasma.width;
     const dh = plasma.height;
     if (dw < 1 || dh < 1) return;

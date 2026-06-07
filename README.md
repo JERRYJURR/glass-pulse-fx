@@ -96,12 +96,12 @@ glass.destroy();
 
 ## How it works
 
-Per instance, bottom → top: **outer bloom** · **inner bloom** · **shader** (a crop of
-the shared GL canvas, clipped to the shape) · **frost** (`backdrop-filter:
-saturate() blur()` over a `fill@frost` tint) · **core** (an inset, layer-blurred opaque
-fill in an `overflow:hidden` clip) · **border** · then your content. The wrapper is
-`position:relative; isolation:isolate` and is **not** `overflow:hidden` (the blooms must
-spill). All effect layers are `pointer-events:none`.
+Per instance, bottom → top: **outer bloom** · **inner bloom** · a shared rounded
+**surface mask** containing the **shader** crop, **frost** (`backdrop-filter:
+saturate() blur()` over a `fill@frost` tint), and **core** (an inset, layer-blurred
+opaque fill) · **border** · then your content. The wrapper is `position:relative;
+isolation:isolate` and is **not** `overflow:hidden` (the blooms must spill). All effect
+layers are `pointer-events:none`.
 
 ## Writing your own shader
 
