@@ -1,6 +1,6 @@
 // Public types for glass-pulse-fx.
 // `GlassSettings` is the framework-agnostic glass material config (shader-independent).
-// `EffectParams` is the shader's own parameter set (panes / sonar, and any you add).
+// `EffectParams` is the shader's own parameter set (panes, and any you add).
 
 export type Theme = 'dark' | 'light';
 

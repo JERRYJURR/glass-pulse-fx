@@ -7,6 +7,10 @@ export default defineConfig({
   root: 'demo',
   // Relative base so it also works under a GitHub Pages subpath. Vercel ignores this.
   base: './',
+  // PORT lets a harness assign a free port; vite's default 5173 otherwise.
+  server: {
+    port: Number(process.env.PORT) || 5173,
+  },
   build: {
     outDir: '../dist-demo',
     emptyOutDir: true,

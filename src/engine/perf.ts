@@ -12,8 +12,6 @@ export const DPR =
 
 /** Shared loop default frame rate. Lower (e.g. 15) for lighter GPU load. */
 export const DEFAULT_FPS = 30;
-export const FPS = DEFAULT_FPS;
-export const FRAME_MS = 1000 / DEFAULT_FPS;
 
 export function frameMsForFps(fps: FpsMode = 'default'): number {
   return 1000 / (fps === 15 || fps === 30 ? fps : DEFAULT_FPS);

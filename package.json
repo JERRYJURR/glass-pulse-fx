@@ -1,7 +1,7 @@
 {
   "name": "glass-pulse-fx",
   "version": "0.1.0",
-  "description": "Frosted-glass UI surfaces lit by animated, original WebGL shaders (panes & sonar).",
+  "description": "Frosted-glass UI surfaces lit by animated, original WebGL shaders.",
   "type": "module",
   "sideEffects": false,
   "main": "./dist/index.cjs",
@@ -61,6 +61,6 @@
     "animation"
   ],
   "license": "MIT",
-  "repository": "github:jerrykou/glass-pulse-fx",
-  "homepage": "https://github.com/jerrykou/glass-pulse-fx"
+  "repository": "github:JERRYJURR/glass-pulse-fx",
+  "homepage": "https://github.com/JERRYJURR/glass-pulse-fx"
 }
