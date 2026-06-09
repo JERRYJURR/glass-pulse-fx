@@ -22,7 +22,7 @@ import type {
 
 export * from './types';
 export { DEFAULT_SETTINGS, DEFAULT_FILL, mergeSettings } from './engine/settings';
-export { EFFECTS, EFFECT_IDS, mergeEffectParams } from './engine/effects';
+export { EFFECTS, EFFECT_IDS, VELOCITY_PRESETS, mergeEffectParams } from './engine/effects';
 
 const keyFor = (id: EffectId, params: EffectParams) => id + ':' + JSON.stringify(params);
 
@@ -36,7 +36,17 @@ function inferKind(el: HTMLElement, radius?: number | string): Kind {
 export function createGlass(target: HTMLElement, opts: CreateGlassOptions = {}): GlassInstance {
   let theme: Theme = opts.theme ?? 'dark';
   let effect: EffectId = opts.effect ?? 'panes';
-  let params: EffectParams = mergeEffectParams(EFFECTS[effect].defaults[theme], opts.effectParams);
+
+  // Explicit param overrides accumulate here and stay constant across themes; setTheme
+  // re-bases them onto the new theme's effect defaults (which carry per-theme palettes).
+  let userParams: Partial<EffectParams> = {};
+  function rememberParams(patch?: Partial<EffectParams>): void {
+    if (!patch) return;
+    userParams = { ...userParams, ...patch };
+    if (patch.colors) userParams.colors = [...patch.colors];
+  }
+  rememberParams(opts.effectParams);
+  let params: EffectParams = mergeEffectParams(EFFECTS[effect].defaults[theme], userParams);
 
   const fillPinned = opts.fill != null;
   let fill = opts.fill ?? DEFAULT_FILL[theme];
@@ -121,10 +131,12 @@ export function createGlass(target: HTMLElement, opts: CreateGlassOptions = {}):
     },
     setEffect(id) {
       effect = id;
+      userParams = {};
       params = mergeEffectParams(EFFECTS[id].defaults[theme]);
       syncEffect();
     },
     setEffectParams(patch) {
+      rememberParams(patch);
       params = mergeEffectParams(params, patch);
       syncEffect();
     },
@@ -132,6 +144,8 @@ export function createGlass(target: HTMLElement, opts: CreateGlassOptions = {}):
       theme = t;
       settings = mergeSettings(DEFAULT_SETTINGS[theme], basePatch);
       if (!fillPinned) fill = DEFAULT_FILL[theme];
+      params = mergeEffectParams(EFFECTS[effect].defaults[theme], userParams);
+      syncEffect();
       restyle();
     },
     setFill(color) {

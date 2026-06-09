@@ -14,7 +14,7 @@ export const DPR =
 export const DEFAULT_FPS = 30;
 
 export function frameMsForFps(fps: FpsMode = 'default'): number {
-  return 1000 / (fps === 15 || fps === 30 ? fps : DEFAULT_FPS);
+  return 1000 / (fps === 15 || fps === 30 || fps === 60 ? fps : DEFAULT_FPS);
 }
 
 // Resolution-independent crop divisors (DPR cancels): srcW = cssW * glW / CROP_W / shaderScale

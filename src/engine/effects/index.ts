@@ -4,6 +4,8 @@ import type { EffectId, EffectParams, Theme, ControlSpec } from '../../types';
 import type { UniformMap } from './common';
 import { panes } from './panes';
 
+export { VELOCITY_PRESETS } from './panes';
+
 export interface EffectDef {
   id: EffectId;
   label: string;

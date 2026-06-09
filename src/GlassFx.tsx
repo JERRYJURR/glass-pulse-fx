@@ -4,7 +4,6 @@
 import * as React from 'react';
 import { createGlass } from './core';
 import { DEFAULT_SETTINGS, mergeSettings } from './engine/settings';
-import { EFFECTS, mergeEffectParams } from './engine/effects';
 import type { EffectId, EffectParams, FpsMode, GlassInstance, GlassSettings, Theme } from './types';
 
 export interface GlassFxProps {
@@ -93,8 +92,9 @@ export function GlassFx({
   }, []);
 
   React.useEffect(() => {
+    // setEffect resets to the new effect's theme defaults; re-apply the prop overrides
     inst.current?.setEffect(effect);
-    if (effectParams) inst.current?.setEffectParams(mergeEffectParams(EFFECTS[effect].defaults[resolvedTheme], effectParams));
+    if (effectParams) inst.current?.setEffectParams(effectParams);
   }, [effect]);
 
   React.useEffect(() => {

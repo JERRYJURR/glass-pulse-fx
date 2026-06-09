@@ -18,8 +18,8 @@ One built-in base shader (the layer is pluggable — bring your own):
 - **Panes** — discrete colored bands moving along an axis: each fades in, holds, fades
   out (via alpha, so the glass shows through), then a transparent interval before the
   next. Knobs: `motion` (Linear or Center — bands emanate from the center, mirrored),
-  `speed` + `reverse`, a **velocity graph** (`velStart` / `velEnd` — band speed at each
-  end of the axis, with a smooth curve between), `scale` (band density), `interval`
+  `speed` + `reverse`, a **velocity preset** (`velocity` — how band speed varies across
+  the axis: uniform, ease in/out, slow/fast middle), `scale` (band density), `interval`
   (transparent spacing between bands), `rampIn` / `rampOut` (independent leading/trailing
   fade), `angle`, and a **colour field decoupled from the bands** — up to 5 palette stops
   sampled by `colorSpread` (along the motion), `colorSkew` (perpendicular → mesh) and
@@ -75,7 +75,7 @@ glass.destroy();
 | `fill` | CSS color | per theme | surface color; **not** a settings field |
 | `radius` | `number \| string` | inferred | border-radius override |
 | `kind` | `'pill' \| 'circle' \| 'rect' \| 'tag' \| 'card' \| 'icon'` | inferred | crop scale + default corner radius |
-| `fps` | `'default' \| 15 \| 30` | `default` | animation paint rate; `default` currently maps to 30fps |
+| `fps` | `'default' \| 15 \| 30 \| 60` | `default` | animation paint rate; `default` currently maps to 30fps |
 | `paused` | `boolean` | `false` | also auto-pauses on reduced-motion / offscreen / hidden tab |
 | `settings` | `Partial<GlassSettings>` | — | glass material, merged onto theme defaults |
 | `settingsByTheme` | `Partial<Record<Theme, Partial<GlassSettings>>>` | — | per-theme glass overrides (React) |
@@ -92,8 +92,12 @@ glass.destroy();
 | `coreProportional` | bool | `false` | scale `coreInset` + `coreBlur` with element size (ref 52px) |
 | `saturate` | 1–2× | 1.3 | chroma boost in the frost (counters the veil) |
 | `borderWidth` / `borderOpacity` / `borderColor` | — | 1 / 0.30 / `#808080` | the lit rim |
-| `innerBloom` | `{ size 0–24, level 0–1 }` | `{2, 1}` | tight, full-bright edge bleed |
-| `outerBloom` | `{ size 0–64, level 0–0.9 }` | `{16, 0.45}` | wide, soft ambient glow |
+| `innerBloom` | `{ size 0–24, level 0–1, offset }` | `{2, 1, 0}` | tight, full-bright edge bleed |
+| `outerBloom` | `{ size 0–64, level 0–0.9, offset }` | `{16, 0.45, 0}` | wide, soft ambient glow |
+
+Bloom `offset` works like CSS `outline-offset`: positive pushes the glow's shape outward
+past the element edge, negative insets it (e.g. `innerBloom: { offset: -1 }` tucks the
+edge bleed 1px inside the silhouette).
 
 ## How it works
 

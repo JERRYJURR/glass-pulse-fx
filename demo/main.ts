@@ -49,7 +49,7 @@ const BUILTIN_ID = 'builtin-default';
 const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x)) as T;
 let idSeq = 0;
 const newId = () => `p-${Date.now().toString(36)}-${idSeq++}`;
-const normalizeFps = (v: unknown): FpsMode => (v === 15 || v === 30 || v === 'default' ? v : 'default');
+const normalizeFps = (v: unknown): FpsMode => (v === 15 || v === 30 || v === 60 || v === 'default' ? v : 'default');
 
 function builtinTheme(t: Theme): ThemeConfig {
   return {
@@ -212,111 +212,6 @@ function toggleCtl(label: string, get: () => boolean, set: (v: boolean) => void,
   return { el, sync };
 }
 
-// Velocity graph editor (AE-style): y = band speed, x = position across the element.
-// Two anchor points (start/end) drag up/down to set the speed at each end; each carries a
-// bezier tangent handle you drag in 2D to shape the speed curve between them.
-// keys = [velStart, velEnd, c0x, c0y, c1x, c1y].
-function velGraphCtl(label: string, keys: string[], onChange: () => void): Ctl {
-  const [START, END, C0X, C0Y, C1X, C1Y] = keys;
-  const ns = 'http://www.w3.org/2000/svg';
-  const P = 16, W = 200, H = 140;
-  const wsvg = W + P * 2, hsvg = H + P * 2;
-  const VMIN = 0.05;
-  const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
-  const el = div('ctl bezier');
-  const lab = document.createElement('label');
-  lab.className = 'bz-label';
-  lab.textContent = label;
-  el.appendChild(lab);
-  const svg = document.createElementNS(ns, 'svg');
-  svg.setAttribute('viewBox', `0 0 ${wsvg} ${hsvg}`);
-  svg.setAttribute('class', 'bz-svg');
-  const mk = (tag: string, cls: string) => {
-    const e = document.createElementNS(ns, tag);
-    e.setAttribute('class', cls);
-    return e;
-  };
-  const t1 = mk('text', 'bz-axis'); t1.textContent = 'fast'; t1.setAttribute('x', String(P + 3)); t1.setAttribute('y', String(P + 9));
-  const t2 = mk('text', 'bz-axis'); t2.textContent = 'slow'; t2.setAttribute('x', String(P + 3)); t2.setAttribute('y', String(P + H - 3));
-  const area = mk('path', 'bz-area');
-  const curve = mk('path', 'bz-curve');
-  const line0 = mk('line', 'bz-line'), line1 = mk('line', 'bz-line');
-  const hand0 = mk('circle', 'bz-handle'), hand1 = mk('circle', 'bz-handle');
-  hand0.setAttribute('r', '4'); hand1.setAttribute('r', '4');
-  const aS = mk('circle', 'bz-anchor'), aE = mk('circle', 'bz-anchor');
-  aS.setAttribute('r', '6'); aE.setAttribute('r', '6');
-  svg.append(area, t1, t2, curve, line0, line1, hand0, hand1, aS, aE);
-  el.appendChild(svg);
-
-  const gx = (s: number) => P + s * W;
-  const gy = (v: number) => P + (1 - v) * H;
-  /* eslint-disable @typescript-eslint/no-explicit-any */
-  const ep = () => working().effectParams as any;
-  const g = (k: string) => ep()[k] as number;
-  const setC = (e: SVGElement, x: number, y: number) => { e.setAttribute('cx', String(x)); e.setAttribute('cy', String(y)); };
-  const setL = (e: SVGElement, x1: number, y1: number, x2: number, y2: number) => {
-    e.setAttribute('x1', String(x1)); e.setAttribute('y1', String(y1));
-    e.setAttribute('x2', String(x2)); e.setAttribute('y2', String(y2));
-  };
-  // cubic bezier point at parameter t, from P0=(0,velStart) P1=(c0) P2=(c1) P3=(1,velEnd)
-  function bez(t: number): [number, number] {
-    const it = 1 - t;
-    const x = 3 * it * it * t * g(C0X) + 3 * it * t * t * g(C1X) + t * t * t;
-    const y = it * it * it * g(START) + 3 * it * it * t * g(C0Y) + 3 * it * t * t * g(C1Y) + t * t * t * g(END);
-    return [x, y];
-  }
-  function render() {
-    let d = '';
-    for (let i = 0; i <= 32; i++) {
-      const [x, y] = bez(i / 32);
-      d += (i ? 'L' : 'M') + gx(x).toFixed(1) + ' ' + gy(y).toFixed(1) + ' ';
-    }
-    curve.setAttribute('d', d);
-    area.setAttribute('d', d + `L ${gx(1)} ${gy(0)} L ${gx(0)} ${gy(0)} Z`);
-    setL(line0, gx(0), gy(g(START)), gx(g(C0X)), gy(g(C0Y)));
-    setL(line1, gx(1), gy(g(END)), gx(g(C1X)), gy(g(C1Y)));
-    setC(hand0, gx(g(C0X)), gy(g(C0Y)));
-    setC(hand1, gx(g(C1X)), gy(g(C1Y)));
-    setC(aS, gx(0), gy(g(START)));
-    setC(aE, gx(1), gy(g(END)));
-  }
-  let drag = -1;
-  function pt(e: PointerEvent): [number, number] {
-    const r = svg.getBoundingClientRect();
-    const sx = ((e.clientX - r.left) / r.width) * wsvg;
-    const sy = ((e.clientY - r.top) / r.height) * hsvg;
-    return [clamp((sx - P) / W, 0, 1), clamp(1 - (sy - P) / H, VMIN, 1)];
-  }
-  function move(e: PointerEvent) {
-    if (drag < 0) return;
-    const [x, y] = pt(e);
-    if (drag === 0) { const dy = y - g(START); ep()[START] = y; ep()[C0Y] = clamp(g(C0Y) + dy, VMIN, 1); }
-    else if (drag === 1) { const dy = y - g(END); ep()[END] = y; ep()[C1Y] = clamp(g(C1Y) + dy, VMIN, 1); }
-    else if (drag === 2) { ep()[C0X] = clamp(x, 0.05, 0.95); ep()[C0Y] = y; }
-    else { ep()[C1X] = clamp(x, 0.05, 0.95); ep()[C1Y] = y; }
-    render();
-    onChange();
-  }
-  function startDrag(idx: number, e: PointerEvent) {
-    drag = idx;
-    try {
-      (e.target as Element).setPointerCapture(e.pointerId);
-    } catch {
-      /* synthetic / unsupported pointer */
-    }
-    e.preventDefault();
-  }
-  const wire = (e: SVGElement, idx: number) => {
-    e.addEventListener('pointerdown', (ev) => startDrag(idx, ev as PointerEvent));
-    e.addEventListener('pointermove', (ev) => move(ev as PointerEvent));
-    e.addEventListener('pointerup', () => (drag = -1));
-  };
-  wire(aS, 0); wire(aE, 1); wire(hand0, 2); wire(hand1, 3);
-  /* eslint-enable @typescript-eslint/no-explicit-any */
-  render();
-  return { el, sync: render };
-}
-
 const px0 = (v: number) => v.toFixed(0) + 'px';
 const px1 = (v: number) => v.toFixed(1) + 'px';
 const f2 = (v: number) => v.toFixed(2);
@@ -433,10 +328,12 @@ function buildStaticControls(): void {
   const inner = $('innerControls');
   glassSlider(inner, 'innerBloom.size', 'Size', 0, 24, 1, px0);
   glassSlider(inner, 'innerBloom.level', 'Level', 0, 1, 0.05, f2);
+  glassSlider(inner, 'innerBloom.offset', 'Offset', -8, 8, 0.5, px1);
 
   const outer = $('outerControls');
   glassSlider(outer, 'outerBloom.size', 'Size', 0, 64, 1, px0);
   glassSlider(outer, 'outerBloom.level', 'Level', 0, 0.9, 0.05, f2);
+  glassSlider(outer, 'outerBloom.offset', 'Offset', -8, 8, 0.5, px1);
 }
 
 function buildEffectControls(): void {
@@ -469,6 +366,34 @@ function buildEffectControls(): void {
       const syncColors = () => inputs.forEach((inp, i) => (inp.value = working().effectParams.colors[i]));
       syncColors();
       effectSyncers.push(syncColors);
+    } else if (c.kind === 'select' && c.options.length > 3) {
+      // too many options for a segmented row — render a dropdown
+      const el = div('ctl');
+      const top = div('top');
+      const label = document.createElement('label');
+      label.textContent = c.label;
+      top.appendChild(label);
+      el.appendChild(top);
+      const sel = document.createElement('select');
+      sel.style.marginTop = '8px';
+      for (const o of c.options) {
+        const opt = document.createElement('option');
+        opt.value = String(o.value);
+        opt.textContent = o.label;
+        sel.appendChild(opt);
+      }
+      const key = c.key;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sync = () => (sel.value = String((working().effectParams as any)[key]));
+      sel.addEventListener('change', () => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (working().effectParams as any)[key] = Number(sel.value);
+        onEffect();
+      });
+      el.appendChild(sel);
+      host.appendChild(el);
+      sync();
+      effectSyncers.push(sync);
     } else if (c.kind === 'select') {
       const el = div('ctl');
       const top = div('top');
@@ -499,10 +424,6 @@ function buildEffectControls(): void {
       host.appendChild(el);
       sync();
       effectSyncers.push(sync);
-    } else if (c.kind === 'velgraph') {
-      const ctl = velGraphCtl(c.label, c.keys, onEffect);
-      host.appendChild(ctl.el);
-      effectSyncers.push(ctl.sync);
     } else if (c.kind === 'toggle') {
       const el = div('ctl color');
       const label = document.createElement('label');

@@ -12,16 +12,28 @@ import type { EffectParams } from '../../types';
 
 const WARP_N = 24;
 
+// Velocity presets: how band speed varies across the element. Each bakes a cubic-bezier
+// speed curve [velStart, velEnd, c0x, c0y, c1x, c1y] — speed at each end of the axis plus
+// two tangent handles. `EffectParams.velocity` is an index into this list.
+export const VELOCITY_PRESETS: { label: string; curve: readonly [number, number, number, number, number, number] }[] = [
+  { label: 'Uniform', curve: [1, 1, 0.33, 1, 0.67, 1] },
+  { label: 'Ease out', curve: [0.8, 0.35, 0.33, 0.72, 0.67, 0.45] },
+  { label: 'Ease out+', curve: [1, 0.15, 0.25, 0.55, 0.6, 0.2] },
+  { label: 'Ease in', curve: [0.35, 0.8, 0.33, 0.45, 0.67, 0.72] },
+  { label: 'Slow middle', curve: [1, 1, 0.33, 0.35, 0.67, 0.35] },
+  { label: 'Fast middle', curve: [0.45, 0.45, 0.33, 1, 0.67, 1] },
+];
+
 // Build the position-remap lookup table on the CPU: invert the cubic-bezier speed curve
-// and integrate 1/speed, sampled to WARP_N points. Cached by the 6 curve params, so it
-// only recomputes when a handle/anchor actually moves — not per frame, not per pixel.
-let lutKey = '';
+// and integrate 1/speed, sampled to WARP_N points. Cached by preset index, so it only
+// recomputes when the preset changes — not per frame, not per pixel.
+let lutKey = -1;
 const lut = new Float32Array(WARP_N);
 function warpLUT(p: EffectParams): Float32Array {
-  const key = `${p.velStart},${p.velEnd},${p.c0x},${p.c0y},${p.c1x},${p.c1y}`;
+  const key = VELOCITY_PRESETS[Math.round(p.velocity)] ? Math.round(p.velocity) : 0;
   if (key === lutKey) return lut;
   lutKey = key;
-  const { velStart: a, velEnd: b, c0x, c0y, c1x, c1y } = p;
+  const [a, b, c0x, c0y, c1x, c1y] = VELOCITY_PRESETS[key].curve;
   const bx = (t: number) => { const it = 1 - t; return 3 * it * it * t * c0x + 3 * it * t * t * c1x + t * t * t; };
   const by = (t: number) => { const it = 1 - t; return it * it * it * a + 3 * it * it * t * c0y + 3 * it * t * t * c1y + t * t * t * b; };
   const bdx = (t: number) => { const it = 1 - t; return 3 * it * it * c0x + 6 * it * t * (c1x - c0x) + 3 * t * t * (1 - c1x); };
@@ -122,14 +134,14 @@ const dark: EffectParams = {
   colors: ['#ff2d9b', '#7a5cff', '#19c3ff', '#15e6a4', '#ffd23f'],
   paneCount: 4, speed: 0.25, scale: 1.6, bright: 1.0,
   colorSpread: 2.0, colorSkew: 0, colorDrift: 0,
-  velStart: 0.8, velEnd: 0.35, c0x: 0.33, c0y: 0.72, c1x: 0.67, c1y: 0.45,
+  velocity: 1, // Ease out
   rampIn: 0.25, rampOut: 0.5, interval: 0.4, angle: 0, motion: 0, reverse: 0,
 };
 const light: EffectParams = {
   colors: ['#ff84c4', '#a99bff', '#79dbff', '#7ef0c2', '#ffe39b'],
   paneCount: 4, speed: 0.25, scale: 1.6, bright: 1.0,
   colorSpread: 2.0, colorSkew: 0, colorDrift: 0,
-  velStart: 0.8, velEnd: 0.35, c0x: 0.33, c0y: 0.72, c1x: 0.67, c1y: 0.45,
+  velocity: 1, // Ease out
   rampIn: 0.25, rampOut: 0.5, interval: 0.4, angle: 0, motion: 0, reverse: 0,
 };
 
@@ -170,8 +182,8 @@ export const panes: EffectDef = {
     { kind: 'slider', key: 'speed', label: 'Speed', min: 0, max: 1, step: 0.01 },
     { kind: 'toggle', key: 'reverse', label: 'Reverse' },
     {
-      kind: 'velgraph', label: 'Velocity curve',
-      keys: ['velStart', 'velEnd', 'c0x', 'c0y', 'c1x', 'c1y'],
+      kind: 'select', key: 'velocity', label: 'Velocity',
+      options: VELOCITY_PRESETS.map((v, i) => ({ label: v.label, value: i })),
     },
     { kind: 'slider', key: 'scale', label: 'Band density', min: 0.1, max: 4, step: 0.05 },
     { kind: 'slider', key: 'interval', label: 'Interval', min: 0, max: 0.9, step: 0.02 },

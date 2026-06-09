@@ -4,7 +4,7 @@
 
 export type Theme = 'dark' | 'light';
 
-export type FpsMode = 'default' | 15 | 30;
+export type FpsMode = 'default' | 15 | 30 | 60;
 
 /** Which base shader drives the lit material. Original shaders — no attribution needed. */
 export type EffectId = 'panes';
@@ -17,6 +17,8 @@ export interface BloomConfig {
   size: number;
   /** opacity 0..1 */
   level: number;
+  /** shape offset in px, like CSS outline-offset: positive pushes the glow outward, negative insets it */
+  offset: number;
 }
 
 /** The glass material configuration. `fill` (surface color) is intentionally NOT here. */
@@ -64,16 +66,8 @@ export interface EffectParams {
   interval: number;
   /** overall brightness multiplier */
   bright: number;
-  /** band speed at the start of the axis, 0.05..1 (velocity-graph left anchor) */
-  velStart: number;
-  /** band speed at the end of the axis, 0.05..1 (velocity-graph right anchor) */
-  velEnd: number;
-  /** start tangent handle (bezier control point 1): x 0..1, y 0.05..1 */
-  c0x: number;
-  c0y: number;
-  /** end tangent handle (bezier control point 2): x 0..1, y 0.05..1 */
-  c1x: number;
-  c1y: number;
+  /** velocity preset index — how band speed varies across the axis (see VELOCITY_PRESETS) */
+  velocity: number;
   /** band direction in degrees */
   angle: number;
   /** motion mode: 0 = linear, 1 = center (mirror about the axis; bands emanate from center) */
@@ -102,12 +96,6 @@ export interface SelectControl {
   label: string;
   options: { label: string; value: number }[];
 }
-export interface VelGraphControl {
-  kind: 'velgraph';
-  label: string;
-  /** EffectParams keys in order: [velStart, velEnd, c0x, c0y, c1x, c1y] */
-  keys: string[];
-}
 export interface ToggleControl {
   kind: 'toggle';
   key: keyof EffectParams;
@@ -117,7 +105,6 @@ export type ControlSpec =
   | SliderControl
   | ColorsControl
   | SelectControl
-  | VelGraphControl
   | ToggleControl;
 
 export interface CreateGlassOptions {
@@ -140,7 +127,7 @@ export interface GlassInstance {
   update(patch: Partial<GlassSettings>): void;
   setEffect(id: EffectId): void;
   setEffectParams(patch: Partial<EffectParams>): void;
-  /** loads this theme's glass settings defaults (re-applies your creation overrides) */
+  /** loads this theme's glass-settings and effect-param defaults (your explicit overrides are re-applied on top) */
   setTheme(t: Theme): void;
   setFill(color: string): void;
   setFps(fps: FpsMode): void;

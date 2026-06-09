@@ -8,7 +8,7 @@
 import { DPR, CROP_W, CROP_H, SHADER_SCALE, BLOOM_MAX, MIN_SAMPLE_SPAN } from '../perf';
 import { withAlpha } from '../color';
 import { CLASS, STRUCT, assign } from '../../styles';
-import type { GlassSettings, Kind } from '../../types';
+import type { BloomConfig, GlassSettings, Kind } from '../../types';
 
 const supportsBackdrop =
   typeof CSS !== 'undefined' &&
@@ -35,6 +35,8 @@ interface Bloom {
   spread: number;
   scale: number;
   blur: number;
+  /** shape offset in CSS px: positive = outset, negative = inset (outline-offset semantics) */
+  offset: number;
   enabled: boolean;
 }
 
@@ -100,8 +102,8 @@ export function createCompositor(
     const bloomIn = mk('canvas', 'bloomIn') as HTMLCanvasElement;
     plasma = mk('canvas', 'shader') as HTMLCanvasElement;
     pctx = plasma.getContext('2d');
-    bOut = { el: bloomOut, ctx: bloomOut.getContext('2d')!, spread: 0, scale: 1, blur: 0, enabled: false };
-    bIn = { el: bloomIn, ctx: bloomIn.getContext('2d')!, spread: 0, scale: 1, blur: 0, enabled: false };
+    bOut = { el: bloomOut, ctx: bloomOut.getContext('2d')!, spread: 0, scale: 1, blur: 0, offset: 0, enabled: false };
+    bIn = { el: bloomIn, ctx: bloomIn.getContext('2d')!, spread: 0, scale: 1, blur: 0, offset: 0, enabled: false };
     surfaceClip.appendChild(plasma);
     nodes.push(bloomOut, bloomIn);
   }
@@ -161,7 +163,9 @@ export function createCompositor(
     return clampRadius(radiusFromCssValue(getComputedStyle(el).borderRadius) ?? 0);
   }
 
-  function layoutBloom(b: Bloom, size: number, level: number): void {
+  function layoutBloom(b: Bloom, cfg: BloomConfig): void {
+    const { size, level } = cfg;
+    const offset = cfg.offset ?? 0; // older saved settings may predate the field
     b.enabled = bloomEnabled(size, level);
     if (!b.enabled) {
       assign(b.el, {
@@ -174,10 +178,11 @@ export function createCompositor(
       b.spread = 0;
       b.scale = 1;
       b.blur = 0;
+      b.offset = 0;
       return;
     }
 
-    const spread = Math.ceil(size * 2.2) + 5;
+    const spread = Math.ceil(size * 2.2) + 5 + Math.max(0, Math.ceil(offset));
     const cw = cssW + spread * 2;
     const ch = cssH + spread * 2;
     assign(b.el, {
@@ -195,6 +200,7 @@ export function createCompositor(
     b.spread = spread;
     b.scale = scale;
     b.blur = size;
+    b.offset = offset;
   }
 
   function applyGlassStyle(): void {
@@ -257,8 +263,8 @@ export function createCompositor(
     applySurfaceClip();
 
     if (!settings) return;
-    if (bOut) layoutBloom(bOut, settings.outerBloom.size, settings.outerBloom.level);
-    if (bIn) layoutBloom(bIn, settings.innerBloom.size, settings.innerBloom.level);
+    if (bOut) layoutBloom(bOut, settings.outerBloom);
+    if (bIn) layoutBloom(bIn, settings.innerBloom);
     applyGlassStyle();
     applyBorder();
   }
@@ -283,7 +289,7 @@ export function createCompositor(
     return Math.min(sourceInset, Math.max(0, Math.min(cssW, cssH) / 2 - 0.5));
   }
 
-  function attenuateBloomCorners(ctx: CanvasRenderingContext2D, b: Bloom, dx: number, dy: number): void {
+  function attenuateBloomCorners(ctx: CanvasRenderingContext2D, b: Bloom, x: number, y: number, w: number, h: number): void {
     const min = Math.min(cssW, cssH);
     if (b.blur <= 0) return;
     if (cornerRadius <= 0 || cornerRadius >= min / 2 - 0.5) return;
@@ -292,10 +298,10 @@ export function createCompositor(
     const amount = Math.min(0.55, 0.14 + b.blur / 45);
     ctx.globalCompositeOperation = 'destination-out';
     ctx.fillStyle = `rgba(0, 0, 0, ${amount})`;
-    ctx.fillRect(dx, dy, zone, zone);
-    ctx.fillRect(dx + cssW * b.scale - zone, dy, zone, zone);
-    ctx.fillRect(dx, dy + cssH * b.scale - zone, zone, zone);
-    ctx.fillRect(dx + cssW * b.scale - zone, dy + cssH * b.scale - zone, zone, zone);
+    ctx.fillRect(x, y, zone, zone);
+    ctx.fillRect(x + w - zone, y, zone, zone);
+    ctx.fillRect(x, y + h - zone, zone, zone);
+    ctx.fillRect(x + w - zone, y + h - zone, zone, zone);
   }
 
   function paintBloom(b: Bloom, crop: Crop, glCanvas: HTMLCanvasElement): void {
@@ -304,13 +310,17 @@ export function createCompositor(
     const s = b.scale;
     const sp = b.spread;
     ctx.clearRect(0, 0, b.el.width, b.el.height);
-    const dx = sp * s;
-    const dy = sp * s;
-    const dW = cssW * s;
-    const dH = cssH * s;
+    // the glow's shape rect: the element bounds pushed out (or pulled in) by offset
+    const off = b.offset * s;
+    const dx = sp * s - off;
+    const dy = sp * s - off;
+    const dW = cssW * s + off * 2;
+    const dH = cssH * s + off * 2;
+    if (dW <= 0 || dH <= 0) return;
+    const radius = Math.max(0, cornerRadius * s + off);
     ctx.save();
     ctx.beginPath();
-    ctx.roundRect(dx, dy, dW, dH, cornerRadius * s);
+    ctx.roundRect(dx, dy, dW, dH, radius);
     ctx.clip();
     ctx.drawImage(glCanvas, crop.sx, crop.sy, crop.srcW, crop.srcH, dx, dy, dW, dH);
 
@@ -320,10 +330,10 @@ export function createCompositor(
     if (iW > 0 && iH > 0) {
       ctx.globalCompositeOperation = 'destination-out';
       ctx.beginPath();
-      ctx.roundRect(dx + inset, dy + inset, iW, iH, Math.max(0, cornerRadius * s - inset));
+      ctx.roundRect(dx + inset, dy + inset, iW, iH, Math.max(0, radius - inset));
       ctx.fill();
     }
-    attenuateBloomCorners(ctx, b, dx, dy);
+    attenuateBloomCorners(ctx, b, dx, dy, dW, dH);
     ctx.restore();
   }
 
