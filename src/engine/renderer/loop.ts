@@ -33,16 +33,27 @@ let renderer: SharedRenderer | null = null;
 
 let rafId = 0;
 let dirty = false;
-let startMs = 0;
+
+// Pausable animation clock (the shaders' u_time). It only advances while something is
+// animating; while parked, frozen repaints reuse the same time and resuming (tab shown,
+// reduced-motion lifted, unpause) continues where it left off instead of jumping by the
+// wall-clock gap.
+let clockSec = 0;
+let lastClockMs = 0; // last RAF timestamp the clock advanced; 0 = parked
 
 let motionAllowed = true;
 let hidden = false;
 let gatesBound = false;
 let motionMql: MediaQueryList | null = null;
 
-function nowSec(): number {
-  if (!startMs) startMs = performance.now();
-  return (performance.now() - startMs) / 1000;
+function advanceClock(now: number, animate: boolean): number {
+  if (animate) {
+    if (lastClockMs) clockSec += (now - lastClockMs) / 1000;
+    lastClockMs = now;
+  } else {
+    lastClockMs = 0;
+  }
+  return clockSec;
 }
 
 export function markDirty(): void {
@@ -77,6 +88,7 @@ function ensureLoop(): void {
 function stopLoop(): void {
   if (rafId) cancelAnimationFrame(rafId);
   rafId = 0;
+  lastClockMs = 0;
   unbindGates();
 }
 
@@ -84,6 +96,7 @@ function tick(now: number): void {
   rafId = requestAnimationFrame(tick);
 
   const animate = shouldAnimate();
+  const t = advanceClock(now, animate);
   let anyNeedsPaint = false;
   let anyDue = false;
   for (const rt of registry) {
@@ -115,8 +128,6 @@ function tick(now: number): void {
     return;
   }
 
-  const t = nowSec();
-
   for (const group of groups.values()) {
     if (renderer) {
       renderer.renderEffect(group[0].effectId, group[0].params, t);
@@ -138,7 +149,11 @@ function onMotion(): void {
 }
 function onVisibility(): void {
   hidden = document.hidden;
-  if (!hidden) {
+  if (hidden) {
+    // RAF stops firing while the tab is hidden, so park the clock here — the next
+    // tick would otherwise fold the whole hidden interval into the animation time.
+    lastClockMs = 0;
+  } else {
     for (const rt of registry) rt.lastPaintMs = 0;
   }
   dirty = true;
