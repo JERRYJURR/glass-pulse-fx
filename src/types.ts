@@ -17,8 +17,6 @@ export interface BloomConfig {
   size: number;
   /** opacity 0..1 */
   level: number;
-  /** shape offset in px: pushes the glow's shape outward past the element edge (min 0) */
-  offset: number;
 }
 
 /** The glass material configuration. `fill` (surface color) is intentionally NOT here. */
@@ -46,10 +44,8 @@ export interface GlassSettings {
  * EffectDef in src/engine/effects/.
  */
 export interface EffectParams {
-  /** up to 5 palette stops (hex). The first `paneCount` are used. */
+  /** 5 palette stops (hex) — the colour gradient cycles through all of them */
   colors: string[];
-  /** how many palette stops are in the colour gradient, 1..5 */
-  paneCount: number;
   /** colour gradient cycles along the motion axis (within/across a band) */
   colorSpread: number;
   /** colour gradient cycles across the perpendicular axis (the mesh dimension) */
@@ -74,8 +70,6 @@ export interface EffectParams {
   angle: number;
   /** motion mode: 0 = linear, 1 = center (mirror about the axis; bands emanate from center) */
   motion: number;
-  /** play direction: 0 = forward, 1 = reverse */
-  reverse: number;
 }
 
 /** A single tunable in the demo's effect panel. */
@@ -98,16 +92,10 @@ export interface SelectControl {
   label: string;
   options: { label: string; value: number }[];
 }
-export interface ToggleControl {
-  kind: 'toggle';
-  key: keyof EffectParams;
-  label: string;
-}
 export type ControlSpec =
   | SliderControl
   | ColorsControl
-  | SelectControl
-  | ToggleControl;
+  | SelectControl;
 
 export interface CreateGlassOptions {
   effect?: EffectId;

@@ -16,7 +16,7 @@ precision highp float;
 uniform vec2 u_resolution;
 uniform float u_time;
 uniform vec3 u_color1,u_color2,u_color3,u_color4,u_color5;
-uniform float u_count,u_speed,u_scale,u_bright;
+uniform float u_speed,u_scale,u_bright;
 
 vec3 paneColor(int i){
   if(i<=0) return u_color1;
@@ -30,7 +30,7 @@ vec3 paneColor(int i){
 export const COMMON_UNIFORMS = [
   'u_resolution', 'u_time',
   'u_color1', 'u_color2', 'u_color3', 'u_color4', 'u_color5',
-  'u_count', 'u_speed', 'u_scale', 'u_bright',
+  'u_speed', 'u_scale', 'u_bright',
 ];
 
 /** Push the shared palette + scalar uniforms. Each effect calls this, then adds its own. */
@@ -39,7 +39,6 @@ export function uploadCommon(gl: WebGLRenderingContext, U: UniformMap, p: Effect
     const c = hexToRgb(p.colors[i] ?? '#000000');
     gl.uniform3f(U[`u_color${i + 1}`], c[0], c[1], c[2]);
   }
-  gl.uniform1f(U.u_count, p.paneCount);
   gl.uniform1f(U.u_speed, p.speed);
   gl.uniform1f(U.u_scale, p.scale);
   gl.uniform1f(U.u_bright, p.bright);

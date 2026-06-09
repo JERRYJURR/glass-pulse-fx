@@ -329,12 +329,10 @@ function buildStaticControls(): void {
   const inner = $('innerControls');
   glassSlider(inner, 'innerBloom.size', 'Size', 0, 24, 1, px0);
   glassSlider(inner, 'innerBloom.level', 'Level', 0, 1, 0.05, f2);
-  glassSlider(inner, 'innerBloom.offset', 'Offset', 0, 8, 0.5, px1);
 
   const outer = $('outerControls');
   glassSlider(outer, 'outerBloom.size', 'Size', 0, 64, 1, px0);
   glassSlider(outer, 'outerBloom.level', 'Level', 0, 0.9, 0.05, f2);
-  glassSlider(outer, 'outerBloom.offset', 'Offset', 0, 8, 0.5, px1);
 }
 
 function buildEffectControls(): void {
@@ -422,29 +420,6 @@ function buildEffectControls(): void {
         buttons.push(b);
       }
       el.appendChild(seg);
-      host.appendChild(el);
-      sync();
-      effectSyncers.push(sync);
-    } else if (c.kind === 'toggle') {
-      const el = div('ctl color');
-      const label = document.createElement('label');
-      label.textContent = c.label;
-      const btn = document.createElement('button');
-      btn.className = 'toggle';
-      const key = c.key;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const ep = () => working().effectParams as any;
-      const sync = () => {
-        const on = ep()[key] > 0.5;
-        btn.classList.toggle('on', on);
-        btn.textContent = on ? 'On' : 'Off';
-      };
-      btn.addEventListener('click', () => {
-        ep()[key] = ep()[key] > 0.5 ? 0 : 1;
-        sync();
-        onEffect();
-      });
-      el.append(label, btn);
       host.appendChild(el);
       sync();
       effectSyncers.push(sync);

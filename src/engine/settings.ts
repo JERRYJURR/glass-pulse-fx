@@ -17,8 +17,8 @@ export const DEFAULT_SETTINGS: Record<Theme, GlassSettings> = {
     borderWidth: 1,
     borderOpacity: 0.3,
     borderColor: '#808080', // hsl(0 0% 50%)
-    innerBloom: { size: 2, level: 1.0, offset: 0 },
-    outerBloom: { size: 16, level: 0.45, offset: 0 },
+    innerBloom: { size: 2, level: 1.0 },
+    outerBloom: { size: 16, level: 0.45 },
   },
   light: {
     // Tuned for vibrant light-theme palettes: a lighter frost veil + extra
@@ -34,8 +34,8 @@ export const DEFAULT_SETTINGS: Record<Theme, GlassSettings> = {
     borderWidth: 1,
     borderOpacity: 0.3,
     borderColor: '#6a6a72',
-    innerBloom: { size: 2, level: 1.0, offset: 0 },
-    outerBloom: { size: 18, level: 0.5, offset: 0 },
+    innerBloom: { size: 2, level: 1.0 },
+    outerBloom: { size: 18, level: 0.5 },
   },
 };
 

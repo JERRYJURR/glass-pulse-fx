@@ -18,10 +18,10 @@ One built-in base shader (the layer is pluggable — bring your own):
 - **Panes** — discrete colored bands moving along an axis: each fades in, holds, fades
   out (via alpha, so the glass shows through), then a transparent interval before the
   next. Knobs: `motion` (Linear or Center — bands emanate from the center, mirrored),
-  `speed` + `reverse`, a **velocity preset** (`velocity` — how band speed varies across
-  the axis: uniform, ease in/out, slow/fast middle), `scale` (band density), `interval`
+  `speed` (sign sets direction), a **velocity preset** (`velocity` — how band speed varies
+  across the axis: uniform, ease in/out, slow/fast middle), `scale` (band density), `interval`
   (transparent spacing between bands), `rampIn` / `rampOut` (independent leading/trailing
-  fade), `angle`, and a **colour field decoupled from the bands** — up to 5 palette stops
+  fade), `angle`, and a **colour field decoupled from the bands** — 5 palette stops
   sampled by `colorSpread` (along the motion), `colorSkew` (perpendicular → mesh) and
   `colorDrift` (over time), so colour can vary *within* a band, not just band-to-band.
 
@@ -60,7 +60,7 @@ const glass = createGlass(document.querySelector('#cta')!, {
   theme: 'dark',
 });
 
-glass.setEffectParams({ motion: 1, speed: 0.4, paneCount: 3, colors: ['#ff2d9b', '#19c3ff', '#15e6a4', '#000', '#000'] });
+glass.setEffectParams({ motion: 1, speed: 0.4, colors: ['#ff2d9b', '#19c3ff', '#15e6a4', '#ff2d9b', '#19c3ff'] });
 glass.update({ bgBlur: 10, frost: 0.5 });
 glass.destroy();
 ```
@@ -93,12 +93,8 @@ glass.destroy();
 | `coreProportional` | bool | `false` | scale `coreInset` + `coreBlur` with element size (ref 52px) |
 | `saturate` | 1–2× | 1.3 | chroma boost in the frost (counters the veil) |
 | `borderWidth` / `borderOpacity` / `borderColor` | — | 1 / 0.30 / `#808080` | the lit rim |
-| `innerBloom` | `{ size 0–24, level 0–1, offset }` | `{2, 1, 0}` | tight, full-bright edge bleed |
-| `outerBloom` | `{ size 0–64, level 0–0.9, offset }` | `{16, 0.45, 0}` | wide, soft ambient glow |
-
-Bloom `offset` pushes the glow's shape outward past the element edge (blooms render
-*under* the surface, so inward offsets would just be hidden — for a lit rim contained
-inside the edge, use `frostInset` instead).
+| `innerBloom` | `{ size 0–24, level 0–1 }` | `{2, 1}` | tight, full-bright edge bleed |
+| `outerBloom` | `{ size 0–64, level 0–0.9 }` | `{16, 0.45}` | wide, soft ambient glow |
 
 ## How it works
 

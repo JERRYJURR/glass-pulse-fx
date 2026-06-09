@@ -35,8 +35,6 @@ interface Bloom {
   spread: number;
   scale: number;
   blur: number;
-  /** shape offset in CSS px: positive = outset, negative = inset (outline-offset semantics) */
-  offset: number;
   enabled: boolean;
 }
 
@@ -102,8 +100,8 @@ export function createCompositor(
     const bloomIn = mk('canvas', 'bloomIn') as HTMLCanvasElement;
     plasma = mk('canvas', 'shader') as HTMLCanvasElement;
     pctx = plasma.getContext('2d');
-    bOut = { el: bloomOut, ctx: bloomOut.getContext('2d')!, spread: 0, scale: 1, blur: 0, offset: 0, enabled: false };
-    bIn = { el: bloomIn, ctx: bloomIn.getContext('2d')!, spread: 0, scale: 1, blur: 0, offset: 0, enabled: false };
+    bOut = { el: bloomOut, ctx: bloomOut.getContext('2d')!, spread: 0, scale: 1, blur: 0, enabled: false };
+    bIn = { el: bloomIn, ctx: bloomIn.getContext('2d')!, spread: 0, scale: 1, blur: 0, enabled: false };
     surfaceClip.appendChild(plasma);
     nodes.push(bloomOut, bloomIn);
   }
@@ -165,8 +163,6 @@ export function createCompositor(
 
   function layoutBloom(b: Bloom, cfg: BloomConfig): void {
     const { size, level } = cfg;
-    // inward offsets would sit under the surface layers and be obscured — clamp to outward
-    const offset = Math.max(0, cfg.offset ?? 0);
     b.enabled = bloomEnabled(size, level);
     if (!b.enabled) {
       assign(b.el, {
@@ -179,11 +175,10 @@ export function createCompositor(
       b.spread = 0;
       b.scale = 1;
       b.blur = 0;
-      b.offset = 0;
       return;
     }
 
-    const spread = Math.ceil(size * 2.2) + 5 + Math.ceil(offset);
+    const spread = Math.ceil(size * 2.2) + 5;
     const cw = cssW + spread * 2;
     const ch = cssH + spread * 2;
     assign(b.el, {
@@ -201,7 +196,6 @@ export function createCompositor(
     b.spread = spread;
     b.scale = scale;
     b.blur = size;
-    b.offset = offset;
   }
 
   function applyGlassStyle(): void {
@@ -315,13 +309,11 @@ export function createCompositor(
     const s = b.scale;
     const sp = b.spread;
     ctx.clearRect(0, 0, b.el.width, b.el.height);
-    // the glow's shape rect: the element bounds pushed outward by offset
-    const off = b.offset * s;
-    const dx = sp * s - off;
-    const dy = sp * s - off;
-    const dW = cssW * s + off * 2;
-    const dH = cssH * s + off * 2;
-    const radius = cornerRadius * s + off;
+    const dx = sp * s;
+    const dy = sp * s;
+    const dW = cssW * s;
+    const dH = cssH * s;
+    const radius = cornerRadius * s;
     ctx.save();
     ctx.beginPath();
     ctx.roundRect(dx, dy, dW, dH, radius);
