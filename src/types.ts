@@ -4,7 +4,7 @@
 
 export type Theme = 'dark' | 'light';
 
-export type FpsMode = 'default' | 15 | 30 | 60;
+export type FpsMode = 15 | 30 | 60;
 
 /** Which base shader drives the lit material. Original shaders — no attribution needed. */
 export type EffectId = 'panes';
@@ -17,7 +17,7 @@ export interface BloomConfig {
   size: number;
   /** opacity 0..1 */
   level: number;
-  /** shape offset in px, like CSS outline-offset: positive pushes the glow outward, negative insets it */
+  /** shape offset in px: pushes the glow's shape outward past the element edge (min 0) */
   offset: number;
 }
 
@@ -25,6 +25,8 @@ export interface BloomConfig {
 export interface GlassSettings {
   bgBlur: number;
   frost: number;
+  /** frost veil inset from the edge in px — exposes a raw, un-veiled shader rim inside the silhouette */
+  frostInset: number;
   coreInset: number;
   coreBlur: number;
   /** opaque-core opacity, 0..1 (1 = fully hides the shader in the center) */
@@ -116,7 +118,7 @@ export interface CreateGlassOptions {
   /** border-radius override; number = px, '50%', '16px', etc. */
   radius?: number | string;
   kind?: Kind;
-  /** animation frame rate. 'default' currently maps to the library default. */
+  /** animation paint rate. default 30. */
   fps?: FpsMode;
   paused?: boolean;
   /** merged onto the active theme's defaults */

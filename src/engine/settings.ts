@@ -8,6 +8,7 @@ export const DEFAULT_SETTINGS: Record<Theme, GlassSettings> = {
   dark: {
     bgBlur: 6,
     frost: 0.66,
+    frostInset: 0,
     coreInset: 8,
     coreBlur: 8,
     coreOpacity: 1,
@@ -24,6 +25,7 @@ export const DEFAULT_SETTINGS: Record<Theme, GlassSettings> = {
     // saturation so the colour reads through the glass on a light surface.
     bgBlur: 6,
     frost: 0.42,
+    frostInset: 0,
     coreInset: 8,
     coreBlur: 8,
     coreOpacity: 1,

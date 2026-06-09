@@ -75,7 +75,7 @@ glass.destroy();
 | `fill` | CSS color | per theme | surface color; **not** a settings field |
 | `radius` | `number \| string` | inferred | border-radius override |
 | `kind` | `'pill' \| 'circle' \| 'rect' \| 'tag' \| 'card' \| 'icon'` | inferred | crop scale + default corner radius |
-| `fps` | `'default' \| 15 \| 30 \| 60` | `default` | animation paint rate; `default` currently maps to 30fps |
+| `fps` | `15 \| 30 \| 60` | `30` | animation paint rate |
 | `paused` | `boolean` | `false` | also auto-pauses on reduced-motion / offscreen / hidden tab |
 | `settings` | `Partial<GlassSettings>` | — | glass material, merged onto theme defaults |
 | `settingsByTheme` | `Partial<Record<Theme, Partial<GlassSettings>>>` | — | per-theme glass overrides (React) |
@@ -86,6 +86,7 @@ glass.destroy();
 |---|---|---|---|
 | `bgBlur` | 0–20 px | 6 | frost background-blur |
 | `frost` | 0.3–1 | 0.66 | frost tint opacity over the shader |
+| `frostInset` | 0–12 px | 0 | insets the frost veil, exposing a raw full-brightness shader rim at the edge |
 | `coreInset` | 0–28 px | 8 | opaque core inset from edge |
 | `coreBlur` | 0–32 px | 8 | layer blur softening core → rim |
 | `coreOpacity` | 0–1 | 1 | core opacity (lower = shader shows through the center) |
@@ -95,9 +96,9 @@ glass.destroy();
 | `innerBloom` | `{ size 0–24, level 0–1, offset }` | `{2, 1, 0}` | tight, full-bright edge bleed |
 | `outerBloom` | `{ size 0–64, level 0–0.9, offset }` | `{16, 0.45, 0}` | wide, soft ambient glow |
 
-Bloom `offset` works like CSS `outline-offset`: positive pushes the glow's shape outward
-past the element edge, negative insets it (e.g. `innerBloom: { offset: -1 }` tucks the
-edge bleed 1px inside the silhouette).
+Bloom `offset` pushes the glow's shape outward past the element edge (blooms render
+*under* the surface, so inward offsets would just be hidden — for a lit rim contained
+inside the edge, use `frostInset` instead).
 
 ## How it works
 

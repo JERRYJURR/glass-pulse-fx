@@ -165,7 +165,8 @@ export function createCompositor(
 
   function layoutBloom(b: Bloom, cfg: BloomConfig): void {
     const { size, level } = cfg;
-    const offset = cfg.offset ?? 0; // older saved settings may predate the field
+    // inward offsets would sit under the surface layers and be obscured — clamp to outward
+    const offset = Math.max(0, cfg.offset ?? 0);
     b.enabled = bloomEnabled(size, level);
     if (!b.enabled) {
       assign(b.el, {
@@ -182,7 +183,7 @@ export function createCompositor(
       return;
     }
 
-    const spread = Math.ceil(size * 2.2) + 5 + Math.max(0, Math.ceil(offset));
+    const spread = Math.ceil(size * 2.2) + 5 + Math.ceil(offset);
     const cw = cssW + spread * 2;
     const ch = cssH + spread * 2;
     assign(b.el, {
@@ -206,6 +207,10 @@ export function createCompositor(
   function applyGlassStyle(): void {
     if (!settings) return;
     frost.style.background = withAlpha(fill, settings.frost);
+    // insetting the frost exposes a raw (un-veiled, un-blurred) shader rim at the edge
+    const fi = Math.max(0, settings.frostInset ?? 0);
+    frost.style.inset = fi + 'px';
+    frost.style.borderRadius = fi > 0 ? Math.max(0, cornerRadius - fi) + 'px' : '0';
     if (supportsBackdrop && !degraded) {
       const shouldFilter = settings.bgBlur > 0 || Math.abs(settings.saturate - 1) > 0.001;
       const bf = shouldFilter ? `saturate(${settings.saturate}) blur(${settings.bgBlur}px)` : 'none';
@@ -310,14 +315,13 @@ export function createCompositor(
     const s = b.scale;
     const sp = b.spread;
     ctx.clearRect(0, 0, b.el.width, b.el.height);
-    // the glow's shape rect: the element bounds pushed out (or pulled in) by offset
+    // the glow's shape rect: the element bounds pushed outward by offset
     const off = b.offset * s;
     const dx = sp * s - off;
     const dy = sp * s - off;
     const dW = cssW * s + off * 2;
     const dH = cssH * s + off * 2;
-    if (dW <= 0 || dH <= 0) return;
-    const radius = Math.max(0, cornerRadius * s + off);
+    const radius = cornerRadius * s + off;
     ctx.save();
     ctx.beginPath();
     ctx.roundRect(dx, dy, dW, dH, radius);

@@ -60,7 +60,7 @@ export function GlassFx({
   theme = 'auto',
   fill,
   radius,
-  fps = 'default',
+  fps = 30,
   paused = false,
   settings,
   settingsByTheme,

@@ -49,7 +49,7 @@ const BUILTIN_ID = 'builtin-default';
 const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x)) as T;
 let idSeq = 0;
 const newId = () => `p-${Date.now().toString(36)}-${idSeq++}`;
-const normalizeFps = (v: unknown): FpsMode => (v === 15 || v === 30 || v === 60 || v === 'default' ? v : 'default');
+const normalizeFps = (v: unknown): FpsMode => (v === 15 || v === 30 || v === 60 ? v : 30);
 
 function builtinTheme(t: Theme): ThemeConfig {
   return {
@@ -74,7 +74,7 @@ function freshState(): DemoState {
     presets: [],
     activeId: b.id,
     theme: 'dark',
-    fps: 'default',
+    fps: 30,
     working: { dark: clone(b.themes.dark), light: clone(b.themes.light) },
   };
 }
@@ -308,6 +308,7 @@ function buildStaticControls(): void {
   const glass = $('glassControls');
   glassSlider(glass, 'bgBlur', 'BG blur', 0, 20, 0.5, px1);
   glassSlider(glass, 'frost', 'Frost level', 0.3, 1, 0.02, f2);
+  glassSlider(glass, 'frostInset', 'Frost inset', 0, 12, 0.5, px1);
   glassSlider(glass, 'coreInset', 'Core inset', 0, 28, 1, px0);
   glassSlider(glass, 'coreBlur', 'Core blur', 0, 32, 1, px0);
   glassSlider(glass, 'coreOpacity', 'Core opacity', 0, 1, 0.02, f2);
@@ -328,12 +329,12 @@ function buildStaticControls(): void {
   const inner = $('innerControls');
   glassSlider(inner, 'innerBloom.size', 'Size', 0, 24, 1, px0);
   glassSlider(inner, 'innerBloom.level', 'Level', 0, 1, 0.05, f2);
-  glassSlider(inner, 'innerBloom.offset', 'Offset', -8, 8, 0.5, px1);
+  glassSlider(inner, 'innerBloom.offset', 'Offset', 0, 8, 0.5, px1);
 
   const outer = $('outerControls');
   glassSlider(outer, 'outerBloom.size', 'Size', 0, 64, 1, px0);
   glassSlider(outer, 'outerBloom.level', 'Level', 0, 0.9, 0.05, f2);
-  glassSlider(outer, 'outerBloom.offset', 'Offset', -8, 8, 0.5, px1);
+  glassSlider(outer, 'outerBloom.offset', 'Offset', 0, 8, 0.5, px1);
 }
 
 function buildEffectControls(): void {
@@ -627,7 +628,7 @@ $('themeSeg').addEventListener('click', (e) => {
 $('fpsSeg').addEventListener('click', (e) => {
   const btn = (e.target as HTMLElement).closest('button');
   if (!btn) return;
-  state.fps = normalizeFps(btn.dataset.fps === 'default' ? 'default' : Number(btn.dataset.fps));
+  state.fps = normalizeFps(Number(btn.dataset.fps));
   pushFps();
   setSeg('fpsSeg', 'fps', String(state.fps));
   save();
