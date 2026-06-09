@@ -1,7 +1,7 @@
 // Performance / sizing constants for the shared renderer and per-instance crop.
 // Pulled out so the frame rate and GL resolution are a single source of truth.
 
-import type { Kind } from '../types';
+import type { FpsMode, Kind } from '../types';
 
 /** Offscreen GL canvas edge in CSS px (squared, then DPR-scaled). */
 export const GL_SIZE = 96;
@@ -10,9 +10,14 @@ export const GL_SIZE = 96;
 export const DPR =
   typeof window !== 'undefined' ? Math.min(2, window.devicePixelRatio || 1) : 1;
 
-/** Shared loop frame rate. Lower (e.g. 15) for lighter GPU load. */
-export const FPS = 30;
-export const FRAME_MS = 1000 / FPS;
+/** Shared loop default frame rate. Lower (e.g. 15) for lighter GPU load. */
+export const DEFAULT_FPS = 30;
+export const FPS = DEFAULT_FPS;
+export const FRAME_MS = 1000 / DEFAULT_FPS;
+
+export function frameMsForFps(fps: FpsMode = 'default'): number {
+  return 1000 / (fps === 15 || fps === 30 ? fps : DEFAULT_FPS);
+}
 
 // Resolution-independent crop divisors (DPR cancels): srcW = cssW * glW / CROP_W / shaderScale
 export const CROP_W = 140;

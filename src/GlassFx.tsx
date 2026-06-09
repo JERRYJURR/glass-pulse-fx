@@ -5,7 +5,7 @@ import * as React from 'react';
 import { createGlass } from './core';
 import { DEFAULT_SETTINGS, mergeSettings } from './engine/settings';
 import { EFFECTS, mergeEffectParams } from './engine/effects';
-import type { EffectId, EffectParams, GlassInstance, GlassSettings, Theme } from './types';
+import type { EffectId, EffectParams, FpsMode, GlassInstance, GlassSettings, Theme } from './types';
 
 export interface GlassFxProps {
   children?: React.ReactNode;
@@ -17,6 +17,7 @@ export interface GlassFxProps {
   theme?: Theme | 'auto';
   fill?: string;
   radius?: number | string;
+  fps?: FpsMode;
   paused?: boolean;
   settings?: Partial<GlassSettings>;
   settingsByTheme?: Partial<Record<Theme, Partial<GlassSettings>>>;
@@ -60,6 +61,7 @@ export function GlassFx({
   theme = 'auto',
   fill,
   radius,
+  fps = 'default',
   paused = false,
   settings,
   settingsByTheme,
@@ -78,6 +80,7 @@ export function GlassFx({
       theme: resolvedTheme,
       fill,
       radius,
+      fps,
       paused,
       settings: effectiveSettings(resolvedTheme, settings, settingsByTheme),
     });
@@ -111,6 +114,10 @@ export function GlassFx({
   React.useEffect(() => {
     inst.current?.setPaused(paused);
   }, [paused]);
+
+  React.useEffect(() => {
+    inst.current?.setFps(fps);
+  }, [fps]);
 
   React.useEffect(() => {
     inst.current?.update(effectiveSettings(resolvedTheme, settings, settingsByTheme));

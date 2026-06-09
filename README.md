@@ -75,6 +75,7 @@ glass.destroy();
 | `fill` | CSS color | per theme | surface color; **not** a settings field |
 | `radius` | `number \| string` | inferred | border-radius override |
 | `kind` | `'pill' \| 'circle' \| 'rect' \| 'tag' \| 'card' \| 'icon'` | inferred | crop scale + default corner radius |
+| `fps` | `'default' \| 15 \| 30` | `default` | animation paint rate; `default` currently maps to 30fps |
 | `paused` | `boolean` | `false` | also auto-pauses on reduced-motion / offscreen / hidden tab |
 | `settings` | `Partial<GlassSettings>` | — | glass material, merged onto theme defaults |
 | `settingsByTheme` | `Partial<Record<Theme, Partial<GlassSettings>>>` | — | per-theme glass overrides (React) |

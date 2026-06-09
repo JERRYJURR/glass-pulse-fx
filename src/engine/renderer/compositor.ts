@@ -201,7 +201,8 @@ export function createCompositor(
     if (!settings) return;
     frost.style.background = withAlpha(fill, settings.frost);
     if (supportsBackdrop && !degraded) {
-      const bf = `saturate(${settings.saturate}) blur(${settings.bgBlur}px)`;
+      const shouldFilter = settings.bgBlur > 0 || Math.abs(settings.saturate - 1) > 0.001;
+      const bf = shouldFilter ? `saturate(${settings.saturate}) blur(${settings.bgBlur}px)` : 'none';
       frost.style.backdropFilter = bf;
       (frost.style as unknown as Record<string, string>).webkitBackdropFilter = bf;
     }

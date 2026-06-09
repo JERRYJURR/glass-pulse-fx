@@ -8,10 +8,12 @@ import { addRuntime, removeRuntime, markDirty, type Runtime } from './engine/ren
 import { createCompositor, type Compositor } from './engine/renderer/compositor';
 import { EFFECTS, mergeEffectParams } from './engine/effects';
 import { DEFAULT_SETTINGS, DEFAULT_FILL, mergeSettings } from './engine/settings';
+import { frameMsForFps } from './engine/perf';
 import type {
   CreateGlassOptions,
   EffectId,
   EffectParams,
+  FpsMode,
   GlassInstance,
   GlassSettings,
   Kind,
@@ -59,6 +61,8 @@ export function createGlass(target: HTMLElement, opts: CreateGlassOptions = {}):
     key: keyFor(effect, params),
     effectId: effect,
     params,
+    frameMs: frameMsForFps(opts.fps),
+    lastPaintMs: 0,
     paused: opts.paused ?? false,
     visible: true,
     needsPaint: true,
@@ -103,6 +107,12 @@ export function createGlass(target: HTMLElement, opts: CreateGlassOptions = {}):
     rt.needsPaint = true;
     markDirty();
   }
+  function setRuntimeFps(fps: FpsMode): void {
+    rt.frameMs = frameMsForFps(fps);
+    rt.lastPaintMs = 0;
+    rt.needsPaint = true;
+    markDirty();
+  }
 
   return {
     update(patch) {
@@ -127,6 +137,9 @@ export function createGlass(target: HTMLElement, opts: CreateGlassOptions = {}):
     setFill(color) {
       fill = color;
       restyle();
+    },
+    setFps(fps) {
+      setRuntimeFps(fps);
     },
     setPaused(paused) {
       rt.paused = paused;

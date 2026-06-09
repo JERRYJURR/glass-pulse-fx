@@ -8,7 +8,6 @@
 // Gating: pauses GL work when the tab is hidden, when prefers-reduced-motion is set
 // (renders one frozen frame), and skips offscreen / paused instances.
 
-import { FRAME_MS } from '../perf';
 import type { SharedRenderer } from './context';
 import type { EffectId, EffectParams } from '../../types';
 
@@ -17,6 +16,10 @@ export interface Runtime {
   key: string;
   effectId: EffectId;
   params: EffectParams;
+  /** minimum milliseconds between animated paints for this runtime */
+  frameMs: number;
+  /** last animated paint timestamp, in requestAnimationFrame time */
+  lastPaintMs: number;
   paused: boolean;
   visible: boolean;
   /** set when geometry/style/effect changed so a frozen instance repaints once */
@@ -29,7 +32,6 @@ const registry = new Set<Runtime>();
 let renderer: SharedRenderer | null = null;
 
 let rafId = 0;
-let last = 0;
 let dirty = false;
 let startMs = 0;
 
@@ -69,7 +71,6 @@ function shouldAnimate(): boolean {
 function ensureLoop(): void {
   if (rafId) return;
   bindGates();
-  last = 0;
   rafId = requestAnimationFrame(tick);
 }
 
@@ -81,41 +82,49 @@ function stopLoop(): void {
 
 function tick(now: number): void {
   rafId = requestAnimationFrame(tick);
-  if (now - last < FRAME_MS) return;
-  last = now;
 
   const animate = shouldAnimate();
   let anyNeedsPaint = false;
+  let anyDue = false;
   for (const rt of registry) {
-    if (rt.needsPaint) {
-      anyNeedsPaint = true;
+    if (rt.needsPaint) anyNeedsPaint = true;
+    if (animate && rt.visible && !rt.paused && (rt.lastPaintMs === 0 || now - rt.lastPaintMs >= rt.frameMs)) {
+      anyDue = true;
+    }
+    if (anyNeedsPaint && anyDue) {
       break;
     }
   }
-  if (!animate && !dirty && !anyNeedsPaint) return;
-
-  const t = nowSec();
+  if (!anyDue && !dirty && !anyNeedsPaint) return;
 
   // group visible instances by palette key
   const groups = new Map<string, Runtime[]>();
   for (const rt of registry) {
     if (!rt.visible) continue;
+    const due =
+      rt.needsPaint ||
+      (animate && !rt.paused && (rt.lastPaintMs === 0 || now - rt.lastPaintMs >= rt.frameMs));
+    if (!due) continue;
     let g = groups.get(rt.key);
     if (!g) groups.set(rt.key, (g = []));
     g.push(rt);
   }
 
+  if (!groups.size) {
+    dirty = false;
+    return;
+  }
+
+  const t = nowSec();
+
   for (const group of groups.values()) {
-    const groupAnimates = animate && group.some((rt) => !rt.paused);
-    const groupNeeds = group.some((rt) => rt.needsPaint);
-    if (renderer && (groupAnimates || groupNeeds)) {
+    if (renderer) {
       renderer.renderEffect(group[0].effectId, group[0].params, t);
     }
     for (const rt of group) {
-      if (groupAnimates || rt.needsPaint) {
-        rt.paint();
-        rt.needsPaint = false;
-      }
+      rt.paint();
+      rt.needsPaint = false;
+      if (animate && !rt.paused) rt.lastPaintMs = now;
     }
   }
   dirty = false;
@@ -129,7 +138,9 @@ function onMotion(): void {
 }
 function onVisibility(): void {
   hidden = document.hidden;
-  if (!hidden) last = 0;
+  if (!hidden) {
+    for (const rt of registry) rt.lastPaintMs = 0;
+  }
   dirty = true;
 }
 

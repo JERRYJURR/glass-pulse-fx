@@ -4,6 +4,8 @@
 
 export type Theme = 'dark' | 'light';
 
+export type FpsMode = 'default' | 15 | 30;
+
 /** Which base shader drives the lit material. Original shaders — no attribution needed. */
 export type EffectId = 'panes';
 
@@ -127,6 +129,8 @@ export interface CreateGlassOptions {
   /** border-radius override; number = px, '50%', '16px', etc. */
   radius?: number | string;
   kind?: Kind;
+  /** animation frame rate. 'default' currently maps to the library default. */
+  fps?: FpsMode;
   paused?: boolean;
   /** merged onto the active theme's defaults */
   settings?: Partial<GlassSettings>;
@@ -139,6 +143,7 @@ export interface GlassInstance {
   /** loads this theme's glass settings defaults (re-applies your creation overrides) */
   setTheme(t: Theme): void;
   setFill(color: string): void;
+  setFps(fps: FpsMode): void;
   setPaused(paused: boolean): void;
   destroy(): void;
 }

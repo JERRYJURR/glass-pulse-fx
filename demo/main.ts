@@ -14,6 +14,7 @@ import {
 import type {
   EffectId,
   EffectParams,
+  FpsMode,
   GlassInstance,
   GlassSettings,
   Kind,
@@ -39,6 +40,7 @@ interface DemoState {
   presets: DemoPreset[];
   activeId: string;
   theme: Theme;
+  fps: FpsMode;
   working: Record<Theme, ThemeConfig>;
 }
 
@@ -47,6 +49,7 @@ const BUILTIN_ID = 'builtin-default';
 const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x)) as T;
 let idSeq = 0;
 const newId = () => `p-${Date.now().toString(36)}-${idSeq++}`;
+const normalizeFps = (v: unknown): FpsMode => (v === 15 || v === 30 || v === 'default' ? v : 'default');
 
 function builtinTheme(t: Theme): ThemeConfig {
   return {
@@ -71,6 +74,7 @@ function freshState(): DemoState {
     presets: [],
     activeId: b.id,
     theme: 'dark',
+    fps: 'default',
     working: { dark: clone(b.themes.dark), light: clone(b.themes.light) },
   };
 }
@@ -93,6 +97,7 @@ function loadState(): DemoState {
     if (raw) {
       const s = JSON.parse(raw) as DemoState;
       if (s && s.version === 2 && s.working?.dark?.effectParams && s.working?.light?.effectParams) {
+        s.fps = normalizeFps(s.fps);
         s.working = { dark: normalizeTheme(s.working.dark, 'dark'), light: normalizeTheme(s.working.light, 'light') };
         s.presets = (s.presets ?? []).map(normalizePreset);
         return s;
@@ -340,6 +345,7 @@ const instances: GlassInstance[] = targets.map((t) => {
     effectParams: w.effectParams,
     settings: w.settings,
     fill: w.fill,
+    fps: state.fps,
   });
 });
 
@@ -354,6 +360,9 @@ function pushEffectParams(): void {
   const w = working();
   for (const i of instances) i.setEffectParams(w.effectParams);
 }
+function pushFps(): void {
+  for (const i of instances) i.setFps(state.fps);
+}
 function applyAll(): void {
   document.body.classList.toggle('light', state.theme === 'light');
   const w = working();
@@ -363,6 +372,7 @@ function applyAll(): void {
     i.setEffectParams(w.effectParams);
     i.update(w.settings);
     i.setFill(w.fill);
+    i.setFps(state.fps);
   }
 }
 
@@ -559,6 +569,7 @@ function refreshAll(): void {
   fillInput.value = working().fill;
   setSeg('shaderSeg', 'effect', working().effect);
   setSeg('themeSeg', 'theme', state.theme);
+  setSeg('fpsSeg', 'fps', String(state.fps));
   rebuildSelect();
   const builtin = activePreset().builtin === true;
   $<HTMLButtonElement>('renameBtn').disabled = builtin;
@@ -689,6 +700,15 @@ $('themeSeg').addEventListener('click', (e) => {
   state.theme = btn.dataset.theme as Theme;
   applyAll();
   refreshAll();
+  save();
+});
+
+$('fpsSeg').addEventListener('click', (e) => {
+  const btn = (e.target as HTMLElement).closest('button');
+  if (!btn) return;
+  state.fps = normalizeFps(btn.dataset.fps === 'default' ? 'default' : Number(btn.dataset.fps));
+  pushFps();
+  setSeg('fpsSeg', 'fps', String(state.fps));
   save();
 });
 
