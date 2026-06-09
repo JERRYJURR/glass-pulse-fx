@@ -44,7 +44,7 @@ export interface GlassSettings {
  * EffectDef in src/engine/effects/.
  */
 export interface EffectParams {
-  /** 5 palette stops (hex) — the colour gradient cycles through all of them */
+  /** 1–5 palette stops (hex) — the colour gradient cycles through all of them */
   colors: string[];
   /** colour gradient cycles along the motion axis (within/across a band) */
   colorSpread: number;

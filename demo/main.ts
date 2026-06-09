@@ -23,11 +23,18 @@ import type {
 
 // ── model ────────────────────────────────────────────────────────────────────
 
+interface PaletteRow {
+  color: string;
+  /** muted rows keep their colour but are excluded from the gradient */
+  on: boolean;
+}
 interface ThemeConfig {
   settings: GlassSettings;
   fill: string;
   effect: EffectId;
   effectParams: EffectParams;
+  /** all palette rows incl. muted ones; effectParams.colors holds just the enabled colours */
+  palette: PaletteRow[];
 }
 interface DemoPreset {
   id: string;
@@ -52,11 +59,13 @@ const newId = () => `p-${Date.now().toString(36)}-${idSeq++}`;
 const normalizeFps = (v: unknown): FpsMode => (v === 15 || v === 30 || v === 60 ? v : 30);
 
 function builtinTheme(t: Theme): ThemeConfig {
+  const effectParams = clone(EFFECTS.panes.defaults[t]);
   return {
     settings: clone(DEFAULT_SETTINGS[t]),
     fill: DEFAULT_FILL[t],
     effect: 'panes',
-    effectParams: clone(EFFECTS.panes.defaults[t]),
+    effectParams,
+    palette: effectParams.colors.map((c) => ({ color: c, on: true })),
   };
 }
 function builtinPreset(): DemoPreset {
@@ -81,11 +90,21 @@ function freshState(): DemoState {
 // backfill any newly-added settings/param fields onto presets saved by older builds
 function normalizeTheme(tc: ThemeConfig, t: Theme): ThemeConfig {
   const effect: EffectId = 'panes';
+  const effectParams = mergeEffectParams(EFFECTS[effect].defaults[t], tc.effectParams);
+  const rows = Array.isArray(tc.palette) && tc.palette.length
+    ? tc.palette
+    : effectParams.colors.map((c) => ({ color: c, on: true }));
+  const palette: PaletteRow[] = rows
+    .slice(0, 5)
+    .map((r) => ({ color: typeof r.color === 'string' ? r.color : '#ffffff', on: r.on !== false }));
+  if (!palette.some((r) => r.on)) palette[0].on = true;
+  effectParams.colors = palette.filter((r) => r.on).map((r) => r.color);
   return {
     settings: mergeSettings(DEFAULT_SETTINGS[t], tc.settings),
     fill: tc.fill ?? DEFAULT_FILL[t],
     effect,
-    effectParams: mergeEffectParams(EFFECTS[effect].defaults[t], tc.effectParams),
+    effectParams,
+    palette,
   };
 }
 function normalizePreset(p: DemoPreset): DemoPreset {
@@ -255,6 +274,13 @@ function pushEffectParams(): void {
   const w = working();
   for (const i of instances) i.setEffectParams(w.effectParams);
 }
+// derive effectParams.colors from the enabled palette rows, then push
+function pushPalette(): void {
+  const w = working();
+  const on = w.palette.filter((r) => r.on);
+  w.effectParams.colors = (on.length ? on : [w.palette[0]]).map((r) => r.color);
+  onEffect();
+}
 function pushFps(): void {
   for (const i of instances) i.setFps(state.fps);
 }
@@ -344,27 +370,63 @@ function buildEffectControls(): void {
 
   for (const c of def.controls) {
     if (c.kind === 'colors') {
-      const row = div('ctl color');
+      const head = div('ctl color');
       const label = document.createElement('label');
       label.textContent = c.label;
-      row.appendChild(label);
-      host.appendChild(row);
-      const set = div('colorset');
-      const inputs: HTMLInputElement[] = [];
-      for (let i = 0; i < 5; i++) {
-        const inp = document.createElement('input');
-        inp.type = 'color';
-        inp.addEventListener('input', () => {
-          working().effectParams.colors[i] = inp.value;
-          onEffect();
+      const addBtn = document.createElement('button');
+      addBtn.className = 'palette-add';
+      addBtn.textContent = '+ Add';
+      head.append(label, addBtn);
+      host.appendChild(head);
+      const list = div('palette');
+      host.appendChild(list);
+
+      const enabledCount = () => working().palette.filter((r) => r.on).length;
+      const render = () => {
+        const pal = working().palette;
+        addBtn.disabled = pal.length >= 5;
+        list.innerHTML = '';
+        pal.forEach((row, i) => {
+          const r = div('palette-row' + (row.on ? '' : ' off'));
+          const inp = document.createElement('input');
+          inp.type = 'color';
+          inp.value = row.color;
+          inp.addEventListener('input', () => {
+            row.color = inp.value;
+            pushPalette();
+          });
+          const tog = document.createElement('button');
+          tog.className = 'toggle' + (row.on ? ' on' : '');
+          tog.textContent = row.on ? 'On' : 'Off';
+          tog.addEventListener('click', () => {
+            if (row.on && enabledCount() === 1) return; // keep at least one stop lit
+            row.on = !row.on;
+            render();
+            pushPalette();
+          });
+          const del = document.createElement('button');
+          del.className = 'row-del';
+          del.textContent = '×';
+          del.title = 'Remove color';
+          del.disabled = pal.length === 1 || (row.on && enabledCount() === 1);
+          del.addEventListener('click', () => {
+            pal.splice(i, 1);
+            render();
+            pushPalette();
+          });
+          r.append(inp, tog, del);
+          list.appendChild(r);
         });
-        inputs.push(inp);
-        set.appendChild(inp);
-      }
-      host.appendChild(set);
-      const syncColors = () => inputs.forEach((inp, i) => (inp.value = working().effectParams.colors[i]));
-      syncColors();
-      effectSyncers.push(syncColors);
+      };
+      addBtn.addEventListener('click', () => {
+        const pal = working().palette;
+        if (pal.length >= 5) return;
+        pal.push({ color: pal[pal.length - 1].color, on: true });
+        render();
+        pushPalette();
+      });
+      render();
+      effectSyncers.push(render);
     } else if (c.kind === 'select' && c.options.length > 3) {
       // too many options for a segmented row — render a dropdown
       const el = div('ctl');
@@ -552,7 +614,12 @@ function loadFromText(): void {
     flash('Missing themes.dark / themes.light');
     return;
   }
-  const preset: DemoPreset = { id: newId(), name: o.name || 'Imported', themes: clone(o.themes) };
+  // normalize so imports from older builds (or hand-edited JSON) get backfilled fields
+  const themes: Record<Theme, ThemeConfig> = {
+    dark: normalizeTheme(clone(o.themes.dark), 'dark'),
+    light: normalizeTheme(clone(o.themes.light), 'light'),
+  };
+  const preset: DemoPreset = { id: newId(), name: o.name || 'Imported', themes };
   state.presets.push(preset);
   state.activeId = preset.id;
   state.working = clone(preset.themes);
@@ -581,6 +648,7 @@ $('shaderSeg').addEventListener('click', (e) => {
   const id = btn.dataset.effect as EffectId;
   working().effect = id;
   working().effectParams = clone(EFFECTS[id].defaults[state.theme]);
+  working().palette = working().effectParams.colors.map((c) => ({ color: c, on: true }));
   for (const i of instances) {
     i.setEffect(id);
     i.setEffectParams(working().effectParams);

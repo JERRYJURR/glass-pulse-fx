@@ -74,12 +74,13 @@ uniform float u_angle, u_rampIn, u_rampOut, u_interval, u_motion;
 uniform float u_warp[24];
 uniform vec3 u_color;   // colorSpread (along), colorSkew (perpendicular), colorDrift (time)
 
-// smooth cyclic gradient through the 5 palette stops
+// smooth cyclic gradient through the palette stops (u_count = colors.length)
 vec3 paletteSmooth(float gc){
-  float x = fract(gc) * 5.0;
+  int count = int(u_count + 0.5);
+  float x = fract(gc) * float(count);
   float fi = floor(x);
   int i0 = int(fi);
-  int i1 = i0 + 1; if(i1 >= 5) i1 = 0;
+  int i1 = i0 + 1; if(i1 >= count) i1 = 0;
   return mix(paneColor(i0), paneColor(i1), x - fi);
 }
 

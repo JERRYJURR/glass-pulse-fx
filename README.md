@@ -21,7 +21,7 @@ One built-in base shader (the layer is pluggable — bring your own):
   `speed` (sign sets direction), a **velocity preset** (`velocity` — how band speed varies
   across the axis: uniform, ease in/out, slow/fast middle), `scale` (band density), `interval`
   (transparent spacing between bands), `rampIn` / `rampOut` (independent leading/trailing
-  fade), `angle`, and a **colour field decoupled from the bands** — 5 palette stops
+  fade), `angle`, and a **colour field decoupled from the bands** — 1–5 palette stops
   sampled by `colorSpread` (along the motion), `colorSkew` (perpendicular → mesh) and
   `colorDrift` (over time), so colour can vary *within* a band, not just band-to-band.
 
@@ -60,7 +60,7 @@ const glass = createGlass(document.querySelector('#cta')!, {
   theme: 'dark',
 });
 
-glass.setEffectParams({ motion: 1, speed: 0.4, colors: ['#ff2d9b', '#19c3ff', '#15e6a4', '#ff2d9b', '#19c3ff'] });
+glass.setEffectParams({ motion: 1, speed: 0.4, colors: ['#ff2d9b', '#19c3ff', '#15e6a4'] });
 glass.update({ bgBlur: 10, frost: 0.5 });
 glass.destroy();
 ```

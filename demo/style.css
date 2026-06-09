@@ -45,7 +45,16 @@ body { background: var(--bg); color: var(--ink); font-family: var(--sans); overf
 .ctl.color { display: flex; align-items: center; justify-content: space-between; }
 .ctl.color label { font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
 
-.colorset { display: flex; gap: 6px; flex-wrap: wrap; padding-top: 7px; }
+.palette { display: flex; flex-direction: column; gap: 6px; padding: 2px 18px 9px; }
+.palette-row { display: flex; align-items: center; gap: 8px; }
+.palette-row.off input[type=color] { opacity: 0.35; }
+.palette-row .toggle { margin-left: auto; }
+.row-del { font-family: var(--mono); font-size: 13px; line-height: 1; color: var(--muted); background: transparent; border: 1px solid var(--line); border-radius: 7px; width: 27px; height: 27px; flex: none; cursor: pointer; transition: border-color .15s, color .15s; }
+.row-del:hover { color: var(--ink); border-color: var(--line-strong); }
+.row-del:disabled { opacity: 0.35; cursor: not-allowed; }
+.palette-add { font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); background: transparent; border: 1px solid var(--line); border-radius: 7px; padding: 5px 9px; cursor: pointer; transition: border-color .15s, color .15s; }
+.palette-add:hover { color: var(--ink); border-color: var(--line-strong); }
+.palette-add:disabled { opacity: 0.4; cursor: not-allowed; }
 
 input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 2px; margin-top: 9px; background: var(--line-strong); border-radius: 2px; outline: none; }
 input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 13px; height: 13px; border-radius: 50%; background: var(--ink); border: 3px solid var(--sidebar-bg); box-shadow: 0 0 0 1px var(--line-strong); cursor: pointer; }
