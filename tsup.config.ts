@@ -1,11 +1,12 @@
 import { defineConfig } from 'tsup';
 
-// Dual ESM + CJS library build with .d.ts. Two entries: the React-inclusive index
-// and the framework-agnostic core. React is external (a peer dependency).
+// Dual ESM + CJS library build with .d.ts. Three entries: the React-inclusive index,
+// the framework-agnostic core, and the preset collection. React is external (a peer).
 export default defineConfig({
   entry: {
     index: 'src/index.ts',
     core: 'src/core.ts',
+    presets: 'src/presets/index.ts',
   },
   format: ['esm', 'cjs'],
   dts: true,

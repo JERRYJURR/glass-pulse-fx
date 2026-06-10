@@ -7,9 +7,10 @@ import { acquireRenderer, releaseRenderer, type SharedRenderer } from './engine/
 import { addRuntime, removeRuntime, markDirty, type Runtime } from './engine/renderer/loop';
 import { createCompositor, type Compositor } from './engine/renderer/compositor';
 import { EFFECTS, mergeEffectParams } from './engine/effects';
-import { DEFAULT_SETTINGS, DEFAULT_FILL, mergeSettings } from './engine/settings';
+import { DEFAULT_SETTINGS, DEFAULT_FILL, DEFAULT_BORDER, mergeSettings, mergeBorder } from './engine/settings';
 import { frameMsForFps } from './engine/perf';
 import type {
+  BorderConfig,
   CreateGlassOptions,
   EffectId,
   EffectParams,
@@ -21,7 +22,7 @@ import type {
 } from './types';
 
 export * from './types';
-export { DEFAULT_SETTINGS, DEFAULT_FILL, mergeSettings } from './engine/settings';
+export { DEFAULT_SETTINGS, DEFAULT_FILL, DEFAULT_BORDER, mergeSettings, mergeBorder } from './engine/settings';
 export { EFFECTS, EFFECT_IDS, VELOCITY_PRESETS, mergeEffectParams } from './engine/effects';
 
 const keyFor = (id: EffectId, params: EffectParams) => id + ':' + JSON.stringify(params);
@@ -54,6 +55,10 @@ export function createGlass(target: HTMLElement, opts: CreateGlassOptions = {}):
   const basePatch = opts.settings; // creation-time overrides, re-applied on theme switch
   let settings: GlassSettings = mergeSettings(DEFAULT_SETTINGS[theme], basePatch);
 
+  // border overrides accumulate (like effect params) and re-base onto theme defaults
+  let borderPatch: Partial<BorderConfig> = { ...opts.border };
+  let border: BorderConfig = mergeBorder(DEFAULT_BORDER[theme], borderPatch);
+
   const kind: Kind = opts.kind ?? inferKind(target, opts.radius);
 
   let renderer: SharedRenderer | null = null;
@@ -65,7 +70,7 @@ export function createGlass(target: HTMLElement, opts: CreateGlassOptions = {}):
   }
 
   const comp: Compositor = createCompositor(target, kind, { radius: opts.radius, degraded });
-  comp.applyStyle(settings, fill);
+  comp.applyStyle(settings, fill, border);
 
   const rt: Runtime = {
     key: keyFor(effect, params),
@@ -106,7 +111,7 @@ export function createGlass(target: HTMLElement, opts: CreateGlassOptions = {}):
   }
 
   function restyle(): void {
-    comp.applyStyle(settings, fill);
+    comp.applyStyle(settings, fill, border);
     rt.needsPaint = true;
     markDirty();
   }
@@ -144,12 +149,18 @@ export function createGlass(target: HTMLElement, opts: CreateGlassOptions = {}):
       theme = t;
       settings = mergeSettings(DEFAULT_SETTINGS[theme], basePatch);
       if (!fillPinned) fill = DEFAULT_FILL[theme];
+      border = mergeBorder(DEFAULT_BORDER[theme], borderPatch);
       params = mergeEffectParams(EFFECTS[effect].defaults[theme], userParams);
       syncEffect();
       restyle();
     },
     setFill(color) {
       fill = color;
+      restyle();
+    },
+    setBorder(patch) {
+      borderPatch = { ...borderPatch, ...patch };
+      border = mergeBorder(border, patch);
       restyle();
     },
     setFps(fps) {

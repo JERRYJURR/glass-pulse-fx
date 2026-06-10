@@ -4,17 +4,30 @@
 import * as React from 'react';
 import { createGlass } from './core';
 import { DEFAULT_SETTINGS, mergeSettings } from './engine/settings';
-import type { EffectId, EffectParams, FpsMode, GlassInstance, GlassSettings, Theme } from './types';
+import type {
+  BorderConfig,
+  EffectId,
+  EffectParams,
+  FpsMode,
+  GlassInstance,
+  GlassPreset,
+  GlassSettings,
+  Theme,
+} from './types';
 
 export interface GlassFxProps {
   children?: React.ReactNode;
-  /** base shader. default 'panes' */
+  /** a shareable look (shader + params + glass material, per theme); explicit props win */
+  preset?: GlassPreset;
+  /** base shader. default 'panes' (or the preset's effect) */
   effect?: EffectId;
-  /** shader params, merged onto the effect's theme defaults */
+  /** shader params, merged onto the preset's params and the effect's theme defaults */
   effectParams?: Partial<EffectParams>;
   /** 'dark' | 'light' | 'auto' (follows prefers-color-scheme). default 'auto' */
   theme?: Theme | 'auto';
+  /** component styling — yours, not part of presets */
   fill?: string;
+  border?: Partial<BorderConfig>;
   radius?: number | string;
   fps?: FpsMode;
   paused?: boolean;
@@ -45,20 +58,14 @@ function useResolvedTheme(theme: Theme | 'auto'): Theme {
   return resolved;
 }
 
-function effectiveSettings(
-  theme: Theme,
-  settings?: Partial<GlassSettings>,
-  settingsByTheme?: Partial<Record<Theme, Partial<GlassSettings>>>,
-): Partial<GlassSettings> {
-  return mergeSettings(mergeSettings(DEFAULT_SETTINGS[theme], settings), settingsByTheme?.[theme]);
-}
-
 export function GlassFx({
   children,
-  effect = 'panes',
+  preset,
+  effect,
   effectParams,
   theme = 'auto',
   fill,
+  border,
   radius,
   fps = 30,
   paused = false,
@@ -71,17 +78,31 @@ export function GlassFx({
   const inst = React.useRef<GlassInstance | null>(null);
   const resolvedTheme = useResolvedTheme(theme);
 
+  // resolution order: explicit props > preset's theme slice > effect/theme defaults
+  const presetTheme = preset?.themes?.[resolvedTheme];
+  const resolvedEffect: EffectId = effect ?? presetTheme?.effect ?? 'panes';
+  const mergedParams: Partial<EffectParams> | undefined =
+    presetTheme?.effectParams || effectParams
+      ? { ...presetTheme?.effectParams, ...effectParams }
+      : undefined;
+  const effSettings = (t: Theme): GlassSettings =>
+    mergeSettings(
+      mergeSettings(mergeSettings(DEFAULT_SETTINGS[t], preset?.themes?.[t]?.settings), settings),
+      settingsByTheme?.[t],
+    );
+
   React.useLayoutEffect(() => {
     if (!ref.current) return;
     const g = createGlass(ref.current, {
-      effect,
-      effectParams,
+      effect: resolvedEffect,
+      effectParams: mergedParams,
       theme: resolvedTheme,
       fill,
+      border,
       radius,
       fps,
       paused,
-      settings: effectiveSettings(resolvedTheme, settings, settingsByTheme),
+      settings: effSettings(resolvedTheme),
     });
     inst.current = g;
     return () => {
@@ -92,24 +113,34 @@ export function GlassFx({
   }, []);
 
   React.useEffect(() => {
-    // setEffect resets to the new effect's theme defaults; re-apply the prop overrides
-    inst.current?.setEffect(effect);
-    if (effectParams) inst.current?.setEffectParams(effectParams);
-  }, [effect]);
+    // setEffect resets to the effect's theme defaults; re-apply the resolved overrides
+    inst.current?.setEffect(resolvedEffect);
+    if (mergedParams) inst.current?.setEffectParams(mergedParams);
+  }, [resolvedEffect]);
 
   React.useEffect(() => {
-    if (effectParams) inst.current?.setEffectParams(effectParams);
-  }, [JSON.stringify(effectParams)]);
+    if (mergedParams) inst.current?.setEffectParams(mergedParams);
+  }, [JSON.stringify(mergedParams)]);
 
   React.useEffect(() => {
     inst.current?.setTheme(resolvedTheme);
-    inst.current?.update(effectiveSettings(resolvedTheme, settings, settingsByTheme));
+    if (preset) {
+      // preset params are per-theme: reset first (setEffect clears accumulated
+      // overrides), then apply the new theme's resolved params
+      inst.current?.setEffect(resolvedEffect);
+      if (mergedParams) inst.current?.setEffectParams(mergedParams);
+    }
+    inst.current?.update(effSettings(resolvedTheme));
     if (fill != null) inst.current?.setFill(fill);
   }, [resolvedTheme]);
 
   React.useEffect(() => {
     if (fill != null) inst.current?.setFill(fill);
   }, [fill]);
+
+  React.useEffect(() => {
+    if (border) inst.current?.setBorder(border);
+  }, [JSON.stringify(border)]);
 
   React.useEffect(() => {
     inst.current?.setPaused(paused);
@@ -120,8 +151,8 @@ export function GlassFx({
   }, [fps]);
 
   React.useEffect(() => {
-    inst.current?.update(effectiveSettings(resolvedTheme, settings, settingsByTheme));
-  }, [JSON.stringify(settings), JSON.stringify(settingsByTheme)]);
+    inst.current?.update(effSettings(resolvedTheme));
+  }, [JSON.stringify(settings), JSON.stringify(settingsByTheme), JSON.stringify(preset?.themes)]);
 
   return (
     <div ref={ref} className={className} style={style}>

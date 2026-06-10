@@ -68,14 +68,44 @@ glass.update({ bgBlur: 10, frost: 0.5 });
 glass.destroy();
 ```
 
+## Presets
+
+A `GlassPreset` is a shareable look — shader + params + glass material, for both themes.
+It deliberately carries **no component styling** (`fill` / `border` / `radius`): those
+belong to the component you wrap. Library presets ship with the package:
+
+```tsx
+import { GlassFx } from 'glass-pulse-fx';
+import { sonar } from 'glass-pulse-fx/presets';
+
+<GlassFx preset={sonar}>
+  <button>Ping</button>
+</GlassFx>
+```
+
+Vanilla — a preset's theme slice spreads straight into `createGlass`:
+
+```ts
+import { sonar } from 'glass-pulse-fx/presets';
+
+const glass = createGlass(el, { theme: 'dark', ...sonar.themes.dark });
+```
+
+Preset files live in [`src/presets/`](src/presets/), one export per file. The preset
+lab's **Export** button generates a ready-to-commit preset file — or React / vanilla
+usage code — from whatever you tuned, containing only the values that differ from the
+defaults.
+
 ## Props (React) / options (vanilla)
 
 | Prop / option | Type | Default | Notes |
 |---|---|---|---|
+| `preset` | `GlassPreset` | — | a shareable look; explicit props below win over it |
 | `effect` | `'panes'` | `panes` | base shader |
-| `effectParams` | `Partial<EffectParams>` | — | merged onto the effect's theme defaults |
+| `effectParams` | `Partial<EffectParams>` | — | merged onto the preset's params + the effect's theme defaults |
 | `theme` | `'dark' \| 'light' \| 'auto'` | `auto` (React) | `auto` follows `prefers-color-scheme` |
-| `fill` | CSS color | per theme | surface color; **not** a settings field |
+| `fill` | CSS color | per theme | surface color — component styling, never in presets |
+| `border` | `Partial<BorderConfig>` | per theme | the lit rim: `{ width, opacity, color }` — component styling |
 | `radius` | `number \| string` | inferred | border-radius override |
 | `kind` | `'pill' \| 'circle' \| 'rect' \| 'tag' \| 'card' \| 'icon'` | inferred | crop scale + default corner radius |
 | `fps` | `15 \| 30 \| 60` | `30` | animation paint rate |
@@ -95,7 +125,6 @@ glass.destroy();
 | `coreOpacity` | 0–1 | 1 | core opacity (lower = shader shows through the center) |
 | `coreProportional` | bool | `false` | scale `coreInset` + `coreBlur` with element size (ref 52px) |
 | `saturate` | 1–2× | 1.3 | chroma boost in the frost (counters the veil) |
-| `borderWidth` / `borderOpacity` / `borderColor` | — | 1 / 0.30 / `#808080` | the lit rim |
 | `innerBloom` | `{ size 0–24, level 0–1 }` | `{2, 1}` | tight, full-bright edge bleed |
 | `outerBloom` | `{ size 0–64, level 0–0.9 }` | `{16, 0.45}` | wide, soft ambient glow |
 
@@ -138,8 +167,11 @@ npm run build:demo   # static site -> dist-demo/
 ```
 
 The lab docks all controls in a left sidebar (independently scrollable), shows six shape
-mockups, and persists presets to `localStorage`. A preset captures the glass material,
-the shader, and its params for **both** themes. **Export** gives you JSON. See
+mockups, and keeps your presets in `localStorage` (library presets from
+[`src/presets/`](src/presets/) appear read-only — Duplicate to riff on one). A preset
+captures the shader, its params, and the glass material for **both** themes; component
+styling (fill / border) stays out, as session state. **Export** emits ready-to-paste
+React or vanilla code, or a preset file to commit. See
 [SEPARATING-THE-DEMO.md](SEPARATING-THE-DEMO.md) for deploying it standalone.
 
 ## License

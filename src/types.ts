@@ -19,7 +19,11 @@ export interface BloomConfig {
   level: number;
 }
 
-/** The glass material configuration. `fill` (surface color) is intentionally NOT here. */
+/**
+ * The glass material configuration — the preset-able "look of the light".
+ * Component styling (`fill`, `border`, `radius`) is intentionally NOT here: those belong
+ * to the component you wrap, not to a shareable preset.
+ */
 export interface GlassSettings {
   bgBlur: number;
   frost: number;
@@ -32,11 +36,16 @@ export interface GlassSettings {
   /** scale coreInset + coreBlur with the element size instead of using fixed px */
   coreProportional: boolean;
   saturate: number;
-  borderWidth: number;
-  borderOpacity: number;
-  borderColor: string;
   innerBloom: BloomConfig;
   outerBloom: BloomConfig;
+}
+
+/** The lit rim border — component styling, like `fill`; not part of GlassSettings/presets. */
+export interface BorderConfig {
+  width: number;
+  /** 0..1 */
+  opacity: number;
+  color: string;
 }
 
 /**
@@ -103,6 +112,8 @@ export interface CreateGlassOptions {
   theme?: Theme;
   /** surface color; defaults per theme. Hex recommended. */
   fill?: string;
+  /** lit rim border overrides; defaults per theme */
+  border?: Partial<BorderConfig>;
   /** border-radius override; number = px, '50%', '16px', etc. */
   radius?: number | string;
   kind?: Kind;
@@ -113,13 +124,30 @@ export interface CreateGlassOptions {
   settings?: Partial<GlassSettings>;
 }
 
+/** One theme's slice of a preset — a subset of CreateGlassOptions, so it spreads straight in. */
+export type GlassPresetTheme = Pick<CreateGlassOptions, 'effect' | 'effectParams' | 'settings'>;
+
+/**
+ * A shareable look: the shader + params + glass material for both themes.
+ * Deliberately excludes component styling (fill / border / radius / kind).
+ * Usage (vanilla): `createGlass(el, { theme: 'dark', ...preset.themes.dark })`
+ * Usage (React):   `<GlassFx preset={preset} />`
+ */
+export interface GlassPreset {
+  name: string;
+  /** preset schema version */
+  version: 1;
+  themes: Record<Theme, GlassPresetTheme>;
+}
+
 export interface GlassInstance {
   update(patch: Partial<GlassSettings>): void;
   setEffect(id: EffectId): void;
   setEffectParams(patch: Partial<EffectParams>): void;
-  /** loads this theme's glass-settings and effect-param defaults (your explicit overrides are re-applied on top) */
+  /** loads this theme's glass-settings, border, and effect-param defaults (your explicit overrides are re-applied on top) */
   setTheme(t: Theme): void;
   setFill(color: string): void;
+  setBorder(patch: Partial<BorderConfig>): void;
   setFps(fps: FpsMode): void;
   setPaused(paused: boolean): void;
   destroy(): void;

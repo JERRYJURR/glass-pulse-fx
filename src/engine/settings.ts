@@ -2,7 +2,7 @@
 // dark = the spec values; light = a placeholder to fill in from your own tuning
 // (the demo's preset lab + JSON export exists to produce these).
 
-import type { GlassSettings, Theme } from '../types';
+import type { BorderConfig, GlassSettings, Theme } from '../types';
 
 export const DEFAULT_SETTINGS: Record<Theme, GlassSettings> = {
   dark: {
@@ -14,9 +14,6 @@ export const DEFAULT_SETTINGS: Record<Theme, GlassSettings> = {
     coreOpacity: 1,
     coreProportional: false,
     saturate: 1.3,
-    borderWidth: 1,
-    borderOpacity: 0.3,
-    borderColor: '#808080', // hsl(0 0% 50%)
     innerBloom: { size: 2, level: 1.0 },
     outerBloom: { size: 16, level: 0.45 },
   },
@@ -31,13 +28,20 @@ export const DEFAULT_SETTINGS: Record<Theme, GlassSettings> = {
     coreOpacity: 1,
     coreProportional: false,
     saturate: 1.55,
-    borderWidth: 1,
-    borderOpacity: 0.3,
-    borderColor: '#6a6a72',
     innerBloom: { size: 2, level: 1.0 },
     outerBloom: { size: 18, level: 0.5 },
   },
 };
+
+/** Lit-rim border per theme — component styling (like DEFAULT_FILL), not part of presets. */
+export const DEFAULT_BORDER: Record<Theme, BorderConfig> = {
+  dark: { width: 1, opacity: 0.3, color: '#808080' }, // hsl(0 0% 50%)
+  light: { width: 1, opacity: 0.3, color: '#6a6a72' },
+};
+
+export function mergeBorder(base: BorderConfig, patch?: Partial<BorderConfig>): BorderConfig {
+  return patch ? { ...base, ...patch } : { ...base };
+}
 
 /** Surface color per theme — a CSS background the glass derives from, separate from settings. */
 export const DEFAULT_FILL: Record<Theme, string> = {

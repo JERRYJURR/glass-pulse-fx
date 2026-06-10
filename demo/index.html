@@ -21,18 +21,20 @@
         <div class="prow">
           <div class="btnbar">
             <button id="saveBtn">Save</button>
-            <button id="saveAsBtn">Save as…</button>
+            <button id="saveAsBtn">Duplicate</button>
             <button id="renameBtn">Rename</button>
             <button id="deleteBtn">Delete</button>
             <button id="revertBtn">Revert</button>
-            <button id="ioToggle">JSON</button>
+            <button id="ioToggle">Export</button>
           </div>
         </div>
         <div class="prow io-row" id="ioRow" hidden>
-          <textarea id="ioText" spellcheck="false" placeholder="Active preset JSON — edit and Load, or paste a preset to import."></textarea>
+          <textarea id="ioText" spellcheck="false" placeholder="Generated code appears here — or paste a GlassPreset JSON and hit Import."></textarea>
           <div class="btnbar">
-            <button id="exportBtn">Copy active</button>
-            <button id="loadBtn">Load</button>
+            <button id="reactBtn">React code</button>
+            <button id="vanillaBtn">Vanilla code</button>
+            <button id="presetBtn">Preset file</button>
+            <button id="loadBtn">Import</button>
             <span class="io-msg" id="ioMsg"></span>
           </div>
         </div>
@@ -58,12 +60,6 @@
       </div>
 
       <div class="group">
-        <div class="group-label">Border</div>
-        <div id="borderControls"></div>
-        <div class="prow inline"><label>Color</label><input type="color" id="borderColor" /></div>
-      </div>
-
-      <div class="group">
         <div class="group-label">Inner bloom · tight</div>
         <div id="innerControls"></div>
       </div>
@@ -74,8 +70,15 @@
       </div>
 
       <div class="group">
-        <div class="group-label">Material</div>
-        <div class="prow inline"><label>Button fill</label><input type="color" id="fill" /></div>
+        <div class="group-label">Component styling</div>
+        <p class="group-note">Your component's CSS — not saved in presets.</p>
+        <div class="prow inline"><label>Fill</label><input type="color" id="fill" /></div>
+        <div id="borderControls"></div>
+        <div class="prow inline"><label>Border color</label><input type="color" id="borderColor" /></div>
+      </div>
+
+      <div class="group">
+        <div class="group-label">Lab</div>
         <div class="prow inline"><label>Theme</label>
           <div class="segmented" id="themeSeg">
             <button data-theme="dark" class="on">Dark</button>

@@ -8,7 +8,7 @@
 import { DPR, CROP_W, CROP_H, SHADER_SCALE, BLOOM_MAX, MIN_SAMPLE_SPAN } from '../perf';
 import { withAlpha } from '../color';
 import { CLASS, STRUCT, assign } from '../../styles';
-import type { BloomConfig, GlassSettings, Kind } from '../../types';
+import type { BloomConfig, BorderConfig, GlassSettings, Kind } from '../../types';
 
 const supportsBackdrop =
   typeof CSS !== 'undefined' &&
@@ -40,7 +40,7 @@ interface Bloom {
 
 export interface Compositor {
   measure(): void;
-  applyStyle(settings: GlassSettings, fill: string): void;
+  applyStyle(settings: GlassSettings, fill: string, borderCfg: BorderConfig): void;
   paint(glCanvas: HTMLCanvasElement): void;
   destroy(): void;
 }
@@ -116,6 +116,7 @@ export function createCompositor(
   let cornerRadius = 0;
   let settings: GlassSettings | null = null;
   let fill = '#000000';
+  let borderCfg: BorderConfig | null = null;
 
   function clampRadius(value: number): number {
     const min = Math.min(cssW, cssH);
@@ -222,11 +223,11 @@ export function createCompositor(
   }
 
   function applyBorder(): void {
-    if (!settings) return;
+    if (!borderCfg) return;
     border.style.borderRadius = cornerRadius + 'px';
-    border.style.border = `${settings.borderWidth}px solid ${withAlpha(
-      settings.borderColor,
-      settings.borderOpacity,
+    border.style.border = `${borderCfg.width}px solid ${withAlpha(
+      borderCfg.color,
+      borderCfg.opacity,
     )}`;
   }
 
@@ -347,9 +348,10 @@ export function createCompositor(
 
   return {
     measure,
-    applyStyle(s, f) {
+    applyStyle(s, f, b) {
       settings = s;
       fill = f;
+      borderCfg = b;
       measure();
     },
     paint,
