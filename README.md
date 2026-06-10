@@ -19,7 +19,8 @@ One built-in base shader (the layer is pluggable — bring your own):
   fades out (via alpha, so the glass shows through), then a transparent interval before the
   next. Knobs: `motion` (**Linear** sweep, **Center** — mirrored, bands emanate from the
   middle, **Radial** — concentric rings ripple outward, **Orbit** — spokes sweep around
-  like a radar; `scale` rounds to the spoke count),
+  like a radar; `scale` rounds to the spoke count and the colour gradient snaps to whole
+  cycles around the ring so it wraps seamlessly),
   `speed` (sign sets direction), a **velocity preset** (`velocity` — how band speed varies
   across the axis: uniform, ease in/out, slow/fast middle), `scale` (band density), `interval`
   (transparent spacing between bands), `rampIn` / `rampOut` (independent leading/trailing

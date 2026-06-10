@@ -182,7 +182,13 @@ export const panes: EffectDef = {
     uploadCommon(gl, U, p);
     gl.uniform1f(U.u_angle, (p.angle * Math.PI) / 180);
     gl.uniform1fv(U['u_warp[0]'], warpLUT(p));
-    gl.uniform3f(U.u_color, p.colorSpread, p.colorSkew, p.colorDrift);
+    // The angular coordinate is a closed loop (orbit runs the gradient along it, radial
+    // across it), so its gradient must complete whole cycles or the colour field seams
+    // at the wrap — snap that component to an integer in those modes.
+    const motion = Math.round(p.motion);
+    const spread = motion === 3 ? Math.round(p.colorSpread) : p.colorSpread;
+    const skew = motion === 2 ? Math.round(p.colorSkew) : p.colorSkew;
+    gl.uniform3f(U.u_color, spread, skew, p.colorDrift);
     gl.uniform1f(U.u_rampIn, p.rampIn);
     gl.uniform1f(U.u_rampOut, p.rampOut);
     gl.uniform1f(U.u_interval, p.interval);
