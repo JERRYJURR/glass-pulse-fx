@@ -6,6 +6,13 @@ import { panes } from './panes';
 
 export { VELOCITY_PRESETS } from './panes';
 
+/**
+ * How the compositor crops the shared field for an instance:
+ * 'banded' (default) — the wide CROP_W:CROP_H window, tuned for sweeping bands;
+ * 'isotropic' — an aspect-true window, so circles and angles render screen-true.
+ */
+export type EffectSampling = 'banded' | 'isotropic';
+
 export interface EffectDef {
   id: EffectId;
   label: string;
@@ -17,6 +24,8 @@ export interface EffectDef {
   defaults: Record<Theme, EffectParams>;
   /** push params into the program's uniforms (resolution + time are set by the renderer) */
   upload(gl: WebGLRenderingContext, U: UniformMap, p: EffectParams): void;
+  /** crop hint for the given params (absent = 'banded') */
+  sampling?(p: EffectParams): EffectSampling;
   /** demo control metadata */
   controls: ControlSpec[];
 }

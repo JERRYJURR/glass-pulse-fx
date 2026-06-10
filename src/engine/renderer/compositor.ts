@@ -41,6 +41,8 @@ interface Bloom {
 export interface Compositor {
   measure(): void;
   applyStyle(settings: GlassSettings, fill: string, borderCfg: BorderConfig): void;
+  /** isotropic = crop an aspect-true window (circles/angles render screen-true) */
+  setSampling(isotropic: boolean): void;
   paint(glCanvas: HTMLCanvasElement): void;
   destroy(): void;
 }
@@ -117,6 +119,7 @@ export function createCompositor(
   let settings: GlassSettings | null = null;
   let fill = '#000000';
   let borderCfg: BorderConfig | null = null;
+  let isotropic = false;
 
   function clampRadius(value: number): number {
     const min = Math.min(cssW, cssH);
@@ -272,6 +275,17 @@ export function createCompositor(
   function cropForButton(glCanvas: HTMLCanvasElement): Crop {
     const cw = glCanvas.width;
     const ch = glCanvas.height;
+    if (isotropic) {
+      // largest centered window matching the element's aspect: x and y magnification
+      // come out equal, so field-space circles and angles render screen-true
+      let srcW = cw;
+      let srcH = (cw * cssH) / cssW;
+      if (srcH > ch) {
+        srcW = (ch * cssW) / cssH;
+        srcH = ch;
+      }
+      return { sx: (cw - srcW) / 2, sy: (ch - srcH) / 2, srcW, srcH };
+    }
     const sampleW = Math.max(cssW, CROP_W * shaderScale * MIN_SAMPLE_SPAN);
     const sampleH = Math.max(cssH, CROP_H * shaderScale * MIN_SAMPLE_SPAN);
     let srcW = (sampleW * cw) / CROP_W / shaderScale;
@@ -353,6 +367,9 @@ export function createCompositor(
       fill = f;
       borderCfg = b;
       measure();
+    },
+    setSampling(v) {
+      isotropic = v;
     },
     paint,
     destroy() {

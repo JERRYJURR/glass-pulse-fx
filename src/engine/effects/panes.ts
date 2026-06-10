@@ -113,9 +113,9 @@ void main(){
   float gap = interval / max(1.0 - interval, 0.05);
   float cycle = 1.0 + gap;
 
-  // The compositor samples the field with a fixed CROP_W:CROP_H (140:40) anisotropy
-  // (see perf.ts) — q counter-scales y so radial/orbit geometry renders screen-circular.
-  vec2 q = vec2(p.x, p.y * 0.2857);
+  // Radial/orbit need no aspect correction here: the EffectDef declares 'isotropic'
+  // sampling for those modes, so the compositor crops an aspect-true window and
+  // field-space circles/angles render screen-true on every shape.
 
   // band position along the mode's 1D coordinate, remapped through the velocity warp,
   // plus the colour-field coords: ca along the motion, cp perpendicular to it
@@ -128,16 +128,16 @@ void main(){
     ca = u + 0.5;
     cp = dot(p, vec2(-dir.y, dir.x)) + 0.5;
   } else if(u_motion < 2.5){
-    float r = length(q) * 2.0;
+    float r = length(p) * 2.0;
     pos = sampleWarp(clamp(r, 0.0, 1.0)) * 0.5 * u_scale - u_time * u_speed;
     ca = r;
-    cp = fract((atan(q.y, q.x) - u_angle) / 6.2831853);
+    cp = fract((atan(p.y, p.x) - u_angle) / 6.2831853);
   } else {
-    float theta = fract((atan(q.y, q.x) - u_angle) / 6.2831853);
+    float theta = fract((atan(p.y, p.x) - u_angle) / 6.2831853);
     float spokes = max(1.0, floor(u_scale + 0.5)); // whole cycles -> no seam at the wrap
     pos = sampleWarp(theta) * spokes * cycle - u_time * u_speed;
     ca = theta;
-    cp = length(q) * 2.0;
+    cp = length(p) * 2.0;
   }
 
   // color field — sampled independently of the band index, so colour can vary within and
@@ -193,6 +193,10 @@ export const panes: EffectDef = {
     gl.uniform1f(U.u_rampOut, p.rampOut);
     gl.uniform1f(U.u_interval, p.interval);
     gl.uniform1f(U.u_motion, p.motion);
+  },
+  // radial/orbit draw circles and angles — crop aspect-true so they render screen-true
+  sampling(p: EffectParams) {
+    return Math.round(p.motion) >= 2 ? 'isotropic' : 'banded';
   },
   controls: [
     { kind: 'colors', label: 'Palette' },

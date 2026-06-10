@@ -70,6 +70,7 @@ export function createGlass(target: HTMLElement, opts: CreateGlassOptions = {}):
   }
 
   const comp: Compositor = createCompositor(target, kind, { radius: opts.radius, degraded });
+  comp.setSampling(EFFECTS[effect].sampling?.(params) === 'isotropic');
   comp.applyStyle(settings, fill, border);
 
   const rt: Runtime = {
@@ -119,6 +120,7 @@ export function createGlass(target: HTMLElement, opts: CreateGlassOptions = {}):
     rt.effectId = effect;
     rt.params = params;
     rt.key = keyFor(effect, params);
+    comp.setSampling(EFFECTS[effect].sampling?.(params) === 'isotropic');
     rt.needsPaint = true;
     markDirty();
   }
