@@ -15,9 +15,11 @@ third-party attribution required) and the shader layer is pluggable — bring yo
 
 One built-in base shader (the layer is pluggable — bring your own):
 
-- **Panes** — discrete colored bands moving along an axis: each fades in, holds, fades
-  out (via alpha, so the glass shows through), then a transparent interval before the
-  next. Knobs: `motion` (Linear or Center — bands emanate from the center, mirrored),
+- **Panes** — discrete colored bands moving along a 1D coordinate: each fades in, holds,
+  fades out (via alpha, so the glass shows through), then a transparent interval before the
+  next. Knobs: `motion` (**Linear** sweep, **Center** — mirrored, bands emanate from the
+  middle, **Radial** — concentric rings ripple outward, **Orbit** — spokes sweep around
+  like a radar; `scale` rounds to the spoke count),
   `speed` (sign sets direction), a **velocity preset** (`velocity` — how band speed varies
   across the axis: uniform, ease in/out, slow/fast middle), `scale` (band density), `interval`
   (transparent spacing between bands), `rampIn` / `rampOut` (independent leading/trailing

@@ -1,10 +1,13 @@
-// Panes: discrete colored bands moving along an axis. Each band fades in (leading), holds
-// at full, fades out (trailing) via ALPHA — so the gaps are transparent (glass shows
-// through), not black — then a transparent interval before the next band.
+// Panes: discrete colored bands moving along a 1D coordinate. Each band fades in
+// (leading), holds at full, fades out (trailing) via ALPHA — so the gaps are transparent
+// (glass shows through), not black — then a transparent interval before the next band.
 //
-// motion 0 (linear): bands sweep along the axis; speed sign sets direction.
-// motion 1 (center): the axis is mirrored about the element center, so bands emanate from
-//   the center to both sides (positive speed) or converge inward (negative speed).
+// The motion modes are different parameterizations of that coordinate:
+//   0 (linear): position along the axis — bands sweep across; speed sign sets direction.
+//   1 (center): the axis mirrored about the element center — bands emanate or converge.
+//   2 (radial): distance from center — concentric rings ripple outward (or inward).
+//   3 (orbit):  angle around center — spokes sweep like a radar; `scale` rounds to the
+//               spoke count so a whole number of cycles wraps the ring without a seam.
 
 import { COMMON_GLSL, COMMON_UNIFORMS, uploadCommon, type UniformMap } from './common';
 import type { EffectDef } from './index';
@@ -100,19 +103,8 @@ float sampleWarp(float s){
 
 void main(){
   vec2 uv = gl_FragCoord.xy / u_resolution;
+  vec2 p = uv - 0.5;
   vec2 dir = vec2(cos(u_angle), sin(u_angle));
-  float u = dot(uv - 0.5, dir);
-  // map the axis to 0..1, remap through the (precomputed) velocity warp, map back.
-  float s = (u_motion > 0.5) ? clamp(abs(u) * 2.0, 0.0, 1.0) : clamp(u + 0.5, 0.0, 1.0);
-  float w01 = sampleWarp(s);
-  float warp = (u_motion > 0.5) ? w01 * 0.5 : w01 - 0.5;
-  float pos = warp * u_scale - u_time * u_speed;
-
-  // color field — sampled independently of the band index, so colour can vary within and
-  // across a band: along the motion axis (spread), perpendicular (skew), and over time (drift)
-  float ca = u + 0.5;
-  float cp = dot(uv - 0.5, vec2(-dir.y, dir.x)) + 0.5;
-  vec3 c = paletteSmooth(ca * u_color.x + cp * u_color.y + u_time * u_color.z);
 
   // The pane is always one unit wide; interval expands the pane+gap cycle instead of
   // stealing width from the pane. So increasing interval adds transparent space after
@@ -120,6 +112,38 @@ void main(){
   float interval = clamp(u_interval, 0.0, 0.95);
   float gap = interval / max(1.0 - interval, 0.05);
   float cycle = 1.0 + gap;
+
+  // The compositor samples the field with a fixed CROP_W:CROP_H (140:40) anisotropy
+  // (see perf.ts) — q counter-scales y so radial/orbit geometry renders screen-circular.
+  vec2 q = vec2(p.x, p.y * 0.2857);
+
+  // band position along the mode's 1D coordinate, remapped through the velocity warp,
+  // plus the colour-field coords: ca along the motion, cp perpendicular to it
+  float pos; float ca; float cp;
+  if(u_motion < 1.5){
+    float u = dot(p, dir);
+    float s = (u_motion > 0.5) ? clamp(abs(u) * 2.0, 0.0, 1.0) : clamp(u + 0.5, 0.0, 1.0);
+    float w01 = sampleWarp(s);
+    pos = ((u_motion > 0.5) ? w01 * 0.5 : w01 - 0.5) * u_scale - u_time * u_speed;
+    ca = u + 0.5;
+    cp = dot(p, vec2(-dir.y, dir.x)) + 0.5;
+  } else if(u_motion < 2.5){
+    float r = length(q) * 2.0;
+    pos = sampleWarp(clamp(r, 0.0, 1.0)) * 0.5 * u_scale - u_time * u_speed;
+    ca = r;
+    cp = fract((atan(q.y, q.x) - u_angle) / 6.2831853);
+  } else {
+    float theta = fract((atan(q.y, q.x) - u_angle) / 6.2831853);
+    float spokes = max(1.0, floor(u_scale + 0.5)); // whole cycles -> no seam at the wrap
+    pos = sampleWarp(theta) * spokes * cycle - u_time * u_speed;
+    ca = theta;
+    cp = length(q) * 2.0;
+  }
+
+  // color field — sampled independently of the band index, so colour can vary within and
+  // across a band: along the motion (spread), perpendicular (skew), and over time (drift)
+  vec3 c = paletteSmooth(ca * u_color.x + cp * u_color.y + u_time * u_color.z);
+
   float f = mod(pos, cycle);
   float ri = clamp(u_rampIn, 0.001, 1.0);
   float ro = clamp(u_rampOut, 0.001, 1.0);
@@ -174,6 +198,8 @@ export const panes: EffectDef = {
       options: [
         { label: 'Linear', value: 0 },
         { label: 'Center', value: 1 },
+        { label: 'Radial', value: 2 },
+        { label: 'Orbit', value: 3 },
       ],
     },
     { kind: 'slider', key: 'speed', label: 'Speed', min: -1, max: 1, step: 0.01 },

@@ -68,7 +68,7 @@ export interface EffectParams {
   velocity: number;
   /** band direction in degrees */
   angle: number;
-  /** motion mode: 0 = linear, 1 = center (mirror about the axis; bands emanate from center) */
+  /** motion mode: 0 = linear sweep, 1 = center (mirrored), 2 = radial (rings), 3 = orbit (spokes) */
   motion: number;
 }
 
