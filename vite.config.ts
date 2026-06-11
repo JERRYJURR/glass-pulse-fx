@@ -10,6 +10,8 @@ export default defineConfig({
   // PORT lets a harness assign a free port; vite's default 5173 otherwise.
   server: {
     port: Number(process.env.PORT) || 5173,
+    // allow access via `tailscale serve` (tailnet-only hostnames)
+    allowedHosts: ['.ts.net'],
   },
   build: {
     outDir: '../dist-demo',

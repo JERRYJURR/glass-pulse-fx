@@ -72,7 +72,9 @@ glass.destroy();
 
 A `GlassPreset` is a shareable look — shader + params + glass material, for both themes.
 It deliberately carries **no component styling** (`fill` / `border` / `radius`): those
-belong to the component you wrap. Library presets ship with the package:
+belong to the component you wrap. Ten presets ship with the package — `auroraVeil`,
+`sonar`, `beacon`, `radar`, `neon`, `ember`, `solar`, `prism`, `bubblegum`, `midnight`
+(plus `LIBRARY_PRESETS`, the full list):
 
 ```tsx
 import { GlassFx } from 'glass-pulse-fx';

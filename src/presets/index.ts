@@ -3,16 +3,35 @@
 //
 //   import { GlassFx } from 'glass-pulse-fx';
 //   import { sonar } from 'glass-pulse-fx/presets';
-//   <GlassFx preset={sonar}><button>…</button></GlassFx>
+//   <GlassFx preset={sonar}>…</GlassFx>
 //
 // Vanilla: createGlass(el, { theme: 'dark', ...sonar.themes.dark })
 
 import type { GlassPreset } from '../types';
+import { auroraVeil } from './aurora-veil';
 import { sonar } from './sonar';
 import { beacon } from './beacon';
+import { radar } from './radar';
+import { neon } from './neon';
+import { ember } from './ember';
+import { solar } from './solar';
+import { prism } from './prism';
+import { bubblegum } from './bubblegum';
+import { midnight } from './midnight';
 
-export { sonar, beacon };
+export { auroraVeil, sonar, beacon, radar, neon, ember, solar, prism, bubblegum, midnight };
 export type { GlassPreset };
 
 /** Every library preset, in display order — for galleries and the preset lab. */
-export const LIBRARY_PRESETS: GlassPreset[] = [sonar, beacon];
+export const LIBRARY_PRESETS: GlassPreset[] = [
+  auroraVeil,
+  sonar,
+  beacon,
+  radar,
+  neon,
+  ember,
+  solar,
+  prism,
+  bubblegum,
+  midnight,
+];
