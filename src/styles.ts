@@ -10,6 +10,7 @@ export const CLASS = {
   surfaceClip: `${PREFIX}-surface-clip`,
   shader: `${PREFIX}-shader`,
   frost: `${PREFIX}-frost`,
+  rim: `${PREFIX}-rim`,
   coreClip: `${PREFIX}-core-clip`,
   core: `${PREFIX}-core`,
   border: `${PREFIX}-border`,
@@ -30,9 +31,13 @@ export const STRUCT: Record<keyof typeof CLASS, Style> = {
     pointerEvents: 'none', zIndex: '0',
   },
   frost: { position: 'absolute', inset: '0', pointerEvents: 'none', zIndex: '1' },
+  rim: {
+    position: 'absolute', inset: '0', width: '100%', height: '100%',
+    pointerEvents: 'none', zIndex: '2',
+  },
   coreClip: {
     position: 'absolute', inset: '0', pointerEvents: 'none',
-    zIndex: '2', overflow: 'hidden',
+    zIndex: '3', overflow: 'hidden',
   },
   core: { position: 'absolute' },
   border: { position: 'absolute', inset: '0', pointerEvents: 'none', zIndex: '5' },

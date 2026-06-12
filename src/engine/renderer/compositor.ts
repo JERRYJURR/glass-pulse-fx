@@ -62,9 +62,44 @@ function mk<K extends keyof typeof CLASS>(
   return e;
 }
 
-function roundedRectMaskUrl(width: number, height: number, radius: number): string {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none"><rect width="${width}" height="${height}" rx="${radius}" ry="${radius}" fill="white"/></svg>`;
+function roundedRectMaskUrl(width: number, height: number, radius: number, inset = 0): string {
+  const x = Math.max(0, inset);
+  const y = Math.max(0, inset);
+  const w = Math.max(1, width - x * 2);
+  const h = Math.max(1, height - y * 2);
+  const r = Math.max(0, radius - inset);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" ry="${r}" fill="white"/></svg>`;
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
+
+function roundedRectStrokeMaskUrl(width: number, height: number, radius: number, strokeWidth: number): string {
+  const sw = Math.max(0, strokeWidth);
+  const inset = sw / 2;
+  const w = Math.max(1, width - sw);
+  const h = Math.max(1, height - sw);
+  const r = Math.max(0, radius - inset);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none"><rect x="${inset}" y="${inset}" width="${w}" height="${h}" rx="${r}" ry="${r}" fill="none" stroke="white" stroke-width="${sw}"/></svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
+
+function applyMask(el: HTMLElement, mask: string): void {
+  const webkitStyle = el.style as unknown as Record<string, string>;
+  el.style.maskImage = mask;
+  el.style.maskSize = '100% 100%';
+  el.style.maskRepeat = 'no-repeat';
+  webkitStyle.webkitMaskImage = mask;
+  webkitStyle.webkitMaskSize = '100% 100%';
+  webkitStyle.webkitMaskRepeat = 'no-repeat';
+}
+
+function clearMask(el: HTMLElement): void {
+  const webkitStyle = el.style as unknown as Record<string, string>;
+  el.style.maskImage = '';
+  el.style.maskSize = '';
+  el.style.maskRepeat = '';
+  webkitStyle.webkitMaskImage = '';
+  webkitStyle.webkitMaskSize = '';
+  webkitStyle.webkitMaskRepeat = '';
 }
 
 function bloomEnabled(size: number, level: number): boolean {
@@ -93,6 +128,8 @@ export function createCompositor(
 
   let plasma: HTMLCanvasElement | null = null;
   let pctx: CanvasRenderingContext2D | null = null;
+  let rim: HTMLCanvasElement | null = null;
+  let rctx: CanvasRenderingContext2D | null = null;
   let bIn: Bloom | null = null;
   let bOut: Bloom | null = null;
 
@@ -101,13 +138,15 @@ export function createCompositor(
     const bloomOut = mk('canvas', 'bloomOut') as HTMLCanvasElement;
     const bloomIn = mk('canvas', 'bloomIn') as HTMLCanvasElement;
     plasma = mk('canvas', 'shader') as HTMLCanvasElement;
+    rim = mk('canvas', 'rim') as HTMLCanvasElement;
     pctx = plasma.getContext('2d');
+    rctx = rim.getContext('2d');
     bOut = { el: bloomOut, ctx: bloomOut.getContext('2d')!, spread: 0, scale: 1, blur: 0, enabled: false };
     bIn = { el: bloomIn, ctx: bloomIn.getContext('2d')!, spread: 0, scale: 1, blur: 0, enabled: false };
     surfaceClip.appendChild(plasma);
     nodes.push(bloomOut, bloomIn);
   }
-  surfaceClip.append(frost, coreClip);
+  surfaceClip.append(...(rim ? [frost, rim, coreClip] : [frost, coreClip]));
   nodes.push(surfaceClip, border);
 
   const first = el.firstChild;
@@ -210,11 +249,42 @@ export function createCompositor(
     if (!settings) return;
     frost.style.background = withAlpha(fill, settings.frost);
     // insetting the frost exposes a raw (un-veiled, un-blurred) shader rim at the edge.
-    // Always carry the concentric radius (outer - inset) so the frost clips its own
-    // backdrop-filter even when the inset is 0.
     const fi = Math.max(0, settings.frostInset ?? 0);
-    frost.style.inset = fi + 'px';
-    frost.style.borderRadius = Math.max(0, cornerRadius - fi) + 'px';
+    if (fi <= 0) {
+      // Flush frost should be clipped only by surfaceClip. A second rounded clip
+      // antialiases independently from the outer mask and can leak shader pixels
+      // at the corners when the frost is fully opaque.
+      frost.style.inset = '0';
+      frost.style.borderRadius = '0';
+      clearMask(frost);
+      if (plasma) clearMask(plasma);
+      if (rim) {
+        rim.style.display = 'none';
+        clearMask(rim);
+      }
+    } else if (supportsMask) {
+      // Keep frost in the same layout box as surfaceClip and draw the inset rect
+      // inside the SVG mask. The raw rim is its own stroked shader layer, avoiding
+      // a half-pixel "outer filled mask minus inner filled mask" subtraction.
+      frost.style.inset = '0';
+      frost.style.borderRadius = '0';
+      const innerMask = roundedRectMaskUrl(exactW, exactH, cornerRadius, fi);
+      applyMask(frost, innerMask);
+      if (plasma) applyMask(plasma, innerMask);
+      if (rim) {
+        rim.style.display = 'block';
+        applyMask(rim, roundedRectStrokeMaskUrl(exactW, exactH, cornerRadius, fi));
+      }
+    } else {
+      frost.style.inset = fi + 'px';
+      clearMask(frost);
+      if (plasma) clearMask(plasma);
+      if (rim) {
+        rim.style.display = 'none';
+        clearMask(rim);
+      }
+      frost.style.borderRadius = Math.max(0, cornerRadius - fi) + 'px';
+    }
     if (supportsBackdrop && !degraded) {
       const shouldFilter = settings.bgBlur > 0 || Math.abs(settings.saturate - 1) > 0.001;
       const bf = shouldFilter ? `saturate(${settings.saturate}) blur(${settings.bgBlur}px)` : 'none';
@@ -270,6 +340,10 @@ export function createCompositor(
     if (plasma) {
       plasma.width = Math.round(cssW * DPR);
       plasma.height = Math.round(cssH * DPR);
+    }
+    if (rim) {
+      rim.width = Math.round(cssW * DPR);
+      rim.height = Math.round(cssH * DPR);
     }
     applySurfaceClip();
 
@@ -371,6 +445,10 @@ export function createCompositor(
     if (dw < 1 || dh < 1) return;
     pctx.clearRect(0, 0, dw, dh);
     pctx.drawImage(glCanvas, crop.sx, crop.sy, crop.srcW, crop.srcH, 0, 0, dw, dh);
+    if (rim && rctx && rim.style.display !== 'none') {
+      rctx.clearRect(0, 0, rim.width, rim.height);
+      rctx.drawImage(glCanvas, crop.sx, crop.sy, crop.srcW, crop.srcH, 0, 0, rim.width, rim.height);
+    }
   }
 
   return {
