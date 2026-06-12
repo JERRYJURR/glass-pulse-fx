@@ -107,6 +107,8 @@ export type ControlSpec =
   | SelectControl;
 
 export interface CreateGlassOptions {
+  /** a shareable look, applied beneath the explicit options below (they win on conflict) */
+  preset?: GlassPreset;
   effect?: EffectId;
   effectParams?: Partial<EffectParams>;
   theme?: Theme;
@@ -124,20 +126,22 @@ export interface CreateGlassOptions {
   settings?: Partial<GlassSettings>;
 }
 
-/** One theme's slice of a preset — a subset of CreateGlassOptions, so it spreads straight in. */
-export type GlassPresetTheme = Pick<CreateGlassOptions, 'effect' | 'effectParams' | 'settings'>;
-
 /**
- * A shareable look: the shader + params + glass material for both themes.
+ * A shareable look: shader + params + glass material. One preset = one look — it applies
+ * identically in dark and light mode, while anything it does NOT pin still adapts to the
+ * theme defaults. Sites with a theme switch that want different looks per mode simply
+ * pass a different preset per mode.
  * Deliberately excludes component styling (fill / border / radius / kind).
- * Usage (vanilla): `createGlass(el, { theme: 'dark', ...preset.themes.dark })`
+ * Usage (vanilla): `createGlass(el, { preset })`
  * Usage (React):   `<GlassFx preset={preset} />`
  */
 export interface GlassPreset {
   name: string;
   /** preset schema version */
   version: 1;
-  themes: Record<Theme, GlassPresetTheme>;
+  effect?: EffectId;
+  effectParams?: Partial<EffectParams>;
+  settings?: Partial<GlassSettings>;
 }
 
 export interface GlassInstance {

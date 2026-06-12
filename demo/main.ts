@@ -1,7 +1,8 @@
 // glass-pulse-fx preset lab.
-// A "preset" is the shareable look of the light: shader + params + glass material for
-// BOTH themes. Component styling (fill / border) is deliberately NOT part of presets —
-// it belongs to the component you wrap — so the lab keeps it as separate session state.
+// A "preset" is one shareable look: shader + params + glass material. It applies
+// identically in dark and light mode — anything it doesn't pin adapts to the theme
+// defaults, which the lab's theme toggle demonstrates live. Component styling
+// (fill / border) is NOT part of presets; the lab keeps it as separate session state.
 // Library presets come from src/presets/ (read-only here); your presets live in
 // localStorage and export as ready-to-commit code. Imports from ../src = live test.
 
@@ -21,7 +22,6 @@ import type {
   FpsMode,
   GlassInstance,
   GlassPreset,
-  GlassPresetTheme,
   GlassSettings,
   Kind,
   Theme,
@@ -35,7 +35,10 @@ interface PaletteRow {
   /** muted rows keep their colour but are excluded from the gradient */
   on: boolean;
 }
-interface ThemeConfig {
+// the fully-expanded look the controls edit
+interface WorkingLook {
+  /** which theme's defaults this look was expanded against (the diff baseline) */
+  baseTheme: Theme;
   settings: GlassSettings;
   effect: EffectId;
   effectParams: EffectParams;
@@ -46,22 +49,25 @@ interface ComponentStyling {
   fill: string;
   border: BorderConfig;
 }
-interface DemoPreset {
+// presets are stored as minimal diffs (the GlassPreset itself); palette keeps muted rows
+interface StoredPreset {
   id: string;
-  name: string;
+  data: GlassPreset;
+  palette?: PaletteRow[];
+}
+interface DemoPreset extends StoredPreset {
   /** factory default + library presets: selectable, not saveable */
   readonly?: boolean;
-  themes: Record<Theme, ThemeConfig>;
 }
 interface DemoState {
-  version: 3;
-  presets: DemoPreset[];
+  version: 4;
+  presets: StoredPreset[];
   activeId: string;
   theme: Theme;
   fps: FpsMode;
   /** the mockups' own styling — not part of presets */
   styling: Record<Theme, ComponentStyling>;
-  working: Record<Theme, ThemeConfig>;
+  working: WorkingLook;
 }
 
 const KEY = 'glass-pulse-fx:demo:v2';
@@ -86,44 +92,85 @@ function pickSettings(s: GlassSettings): GlassSettings {
     outerBloom: { size: s.outerBloom.size, level: s.outerBloom.level },
   };
 }
-
 // rebuild params with the effect's known keys only, dropping junk from older schemas
 function pickParams(p: EffectParams, def: EffectParams): EffectParams {
   const out = {} as Record<string, unknown>;
   for (const k of Object.keys(def)) out[k] = (p as unknown as Record<string, unknown>)[k];
   return out as unknown as EffectParams;
 }
+function normalizePalette(rows: unknown, colors: string[]): PaletteRow[] {
+  const src = Array.isArray(rows) && rows.length
+    ? (rows as PaletteRow[])
+    : colors.map((c) => ({ color: c, on: true }));
+  const palette = src
+    .slice(0, 5)
+    .map((r) => ({ color: typeof r.color === 'string' ? r.color : '#ffffff', on: r.on !== false }));
+  if (!palette.some((r) => r.on)) palette[0].on = true;
+  return palette;
+}
 
-// expand a (possibly partial) preset theme slice onto the library defaults
-function themeFromPreset(pt: GlassPresetTheme | undefined, t: Theme): ThemeConfig {
-  const effect: EffectId = pt?.effect ?? 'panes';
+// expand a preset's diffs onto a theme's defaults — the inverse of presetFromLook
+function lookFromPreset(p: GlassPreset | undefined, t: Theme, palette?: PaletteRow[]): WorkingLook {
+  const effect: EffectId = p?.effect ?? 'panes';
   const def = EFFECTS[effect].defaults[t];
-  const effectParams = pickParams(mergeEffectParams(def, pt?.effectParams), def);
+  const effectParams = pickParams(mergeEffectParams(def, p?.effectParams), def);
+  const rows = normalizePalette(palette, effectParams.colors);
+  effectParams.colors = rows.filter((r) => r.on).map((r) => r.color);
   return {
-    settings: pickSettings(mergeSettings(DEFAULT_SETTINGS[t], pt?.settings)),
+    baseTheme: t,
+    settings: pickSettings(mergeSettings(DEFAULT_SETTINGS[t], p?.settings)),
     effect,
     effectParams,
-    palette: effectParams.colors.map((c) => ({ color: c, on: true })),
+    palette: rows,
   };
 }
 
-function builtinPreset(): DemoPreset {
-  return {
-    id: BUILTIN_ID,
-    name: 'Default',
-    readonly: true,
-    themes: { dark: themeFromPreset(undefined, 'dark'), light: themeFromPreset(undefined, 'light') },
-  };
+// diff the working look against its baseline defaults -> minimal GlassPreset
+function diffParams(look: WorkingLook): Partial<EffectParams> | undefined {
+  const def = EFFECTS[look.effect].defaults[look.baseTheme];
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  const out: any = {};
+  for (const k of Object.keys(def) as (keyof EffectParams)[]) {
+    if (k === 'colors') {
+      if (JSON.stringify(look.effectParams.colors) !== JSON.stringify(def.colors)) out.colors = [...look.effectParams.colors];
+    } else if (look.effectParams[k] !== def[k]) {
+      out[k] = look.effectParams[k];
+    }
+  }
+  /* eslint-enable @typescript-eslint/no-explicit-any */
+  return Object.keys(out).length ? (out as Partial<EffectParams>) : undefined;
 }
-function demoPresetFromLibrary(p: GlassPreset): DemoPreset {
-  return {
-    id: 'lib-' + p.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-    name: p.name,
-    readonly: true,
-    themes: { dark: themeFromPreset(p.themes.dark, 'dark'), light: themeFromPreset(p.themes.light, 'light') },
-  };
+function diffSettings(look: WorkingLook): Partial<GlassSettings> | undefined {
+  const s = look.settings;
+  const def = DEFAULT_SETTINGS[look.baseTheme];
+  const out: Partial<GlassSettings> = {};
+  for (const k of ['bgBlur', 'frost', 'frostInset', 'coreInset', 'coreBlur', 'coreOpacity', 'coreProportional', 'saturate'] as const) {
+    if (s[k] !== def[k]) (out as Record<string, unknown>)[k] = s[k];
+  }
+  for (const b of ['innerBloom', 'outerBloom'] as const) {
+    const d: Partial<GlassSettings['innerBloom']> = {};
+    if (s[b].size !== def[b].size) d.size = s[b].size;
+    if (s[b].level !== def[b].level) d.level = s[b].level;
+    if (Object.keys(d).length) (out as Record<string, unknown>)[b] = d;
+  }
+  return Object.keys(out).length ? out : undefined;
 }
-const libPresets: DemoPreset[] = LIBRARY_PRESETS.map(demoPresetFromLibrary);
+function presetFromLook(look: WorkingLook, name: string): GlassPreset {
+  const out: GlassPreset = { name, version: 1 };
+  if (look.effect !== 'panes') out.effect = look.effect;
+  const ep = diffParams(look);
+  if (ep) out.effectParams = ep;
+  const st = diffSettings(look);
+  if (st) out.settings = st;
+  return out;
+}
+
+const BUILTIN: GlassPreset = { name: 'Default', version: 1 };
+const libPresets: DemoPreset[] = LIBRARY_PRESETS.map((p) => ({
+  id: 'lib-' + p.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+  data: p,
+  readonly: true,
+}));
 
 function freshStyling(): Record<Theme, ComponentStyling> {
   return {
@@ -132,48 +179,35 @@ function freshStyling(): Record<Theme, ComponentStyling> {
   };
 }
 function freshState(): DemoState {
-  const b = builtinPreset();
   return {
-    version: 3,
+    version: 4,
     presets: [],
-    activeId: b.id,
+    activeId: BUILTIN_ID,
     theme: 'dark',
     fps: 30,
     styling: freshStyling(),
-    working: { dark: clone(b.themes.dark), light: clone(b.themes.light) },
-  };
-}
-
-// backfill any newly-added settings/param fields onto presets saved by older builds
-function normalizeTheme(tc: ThemeConfig, t: Theme): ThemeConfig {
-  const effect: EffectId = 'panes';
-  const def = EFFECTS[effect].defaults[t];
-  const effectParams = pickParams(mergeEffectParams(def, tc.effectParams), def);
-  const rows = Array.isArray(tc.palette) && tc.palette.length
-    ? tc.palette
-    : effectParams.colors.map((c) => ({ color: c, on: true }));
-  const palette: PaletteRow[] = rows
-    .slice(0, 5)
-    .map((r) => ({ color: typeof r.color === 'string' ? r.color : '#ffffff', on: r.on !== false }));
-  if (!palette.some((r) => r.on)) palette[0].on = true;
-  effectParams.colors = palette.filter((r) => r.on).map((r) => r.color);
-  return {
-    settings: pickSettings(mergeSettings(DEFAULT_SETTINGS[t], tc.settings)),
-    effect,
-    effectParams,
-    palette,
-  };
-}
-function normalizePreset(p: DemoPreset): DemoPreset {
-  return {
-    id: p.id,
-    name: p.name,
-    themes: { dark: normalizeTheme(p.themes.dark, 'dark'), light: normalizeTheme(p.themes.light, 'light') },
+    working: lookFromPreset(BUILTIN, 'dark'),
   };
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// v2 kept fill on each theme config and border inside settings — lift them out
+// accept a flattened GlassPreset, or the legacy two-theme shape (take the dark slice),
+// or a fully-expanded legacy theme config — everything funnels through expansion+diff
+function presetDataFrom(d: any, fallbackName: string): { data: GlassPreset; palette?: PaletteRow[] } {
+  const src = d?.themes?.dark ?? d ?? {};
+  const raw: GlassPreset = {
+    name: typeof d?.name === 'string' && d.name.trim() ? d.name : fallbackName,
+    version: 1,
+    ...(src.effect === 'panes' ? { effect: 'panes' as const } : {}),
+    ...(src.effectParams && typeof src.effectParams === 'object' ? { effectParams: src.effectParams } : {}),
+    ...(src.settings && typeof src.settings === 'object' ? { settings: src.settings } : {}),
+  };
+  // expand against dark and re-diff so stored data is clean and canonical
+  const look = lookFromPreset(raw, 'dark', src.palette);
+  return { data: presetFromLook(look, raw.name), palette: look.palette };
+}
+
+// v2/v3 kept fill on theme configs and border inside settings — lift them out
 function normalizeStyling(s: any): Record<Theme, ComponentStyling> {
   const forTheme = (t: Theme): ComponentStyling => {
     const st = s?.styling?.[t];
@@ -207,18 +241,38 @@ function loadState(): DemoState {
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const s = JSON.parse(raw) as any;
-      if (s && (s.version === 2 || s.version === 3) && s.working?.dark?.effectParams && s.working?.light?.effectParams) {
+      if (s?.version === 4 && s.working?.effectParams && s.working?.settings) {
+        const theme: Theme = s.theme === 'light' ? 'light' : 'dark';
+        const baseTheme: Theme = s.working.baseTheme === 'light' ? 'light' : 'dark';
+        const wp = presetDataFrom(
+          { name: 'w', effect: s.working.effect, effectParams: s.working.effectParams, settings: s.working.settings, palette: s.working.palette },
+          'w',
+        );
+        const working = lookFromPreset(wp.data, baseTheme, wp.palette);
         return {
-          version: 3,
-          presets: ((s.presets ?? []) as DemoPreset[]).map(normalizePreset),
+          version: 4,
+          presets: ((s.presets ?? []) as any[]).map((p) => ({ id: typeof p.id === 'string' ? p.id : newId(), ...presetDataFrom(p.data ?? p, 'Untitled') })),
           activeId: typeof s.activeId === 'string' ? s.activeId : BUILTIN_ID,
-          theme: s.theme === 'light' ? 'light' : 'dark',
+          theme,
           fps: normalizeFps(s.fps),
           styling: normalizeStyling(s),
-          working: {
-            dark: normalizeTheme(s.working.dark, 'dark'),
-            light: normalizeTheme(s.working.light, 'light'),
-          },
+          working,
+        };
+      }
+      if ((s?.version === 2 || s?.version === 3) && s.working?.dark?.effectParams) {
+        const theme: Theme = s.theme === 'light' ? 'light' : 'dark';
+        const w = presetDataFrom({ name: 'w', ...s.working[theme] }, 'w');
+        return {
+          version: 4,
+          presets: ((s.presets ?? []) as any[]).map((p) => ({
+            id: typeof p.id === 'string' ? p.id : newId(),
+            ...presetDataFrom({ name: p.name, themes: p.themes }, 'Untitled'),
+          })),
+          activeId: typeof s.activeId === 'string' ? s.activeId : BUILTIN_ID,
+          theme,
+          fps: normalizeFps(s.fps),
+          styling: normalizeStyling(s),
+          working: lookFromPreset(w.data, theme, w.palette),
         };
       }
     }
@@ -243,13 +297,24 @@ function save(): void {
   }, 150);
 }
 
-const allPresets = (): DemoPreset[] => [builtinPreset(), ...libPresets, ...state.presets];
+const allPresets = (): DemoPreset[] => [
+  { id: BUILTIN_ID, data: BUILTIN, readonly: true },
+  ...libPresets,
+  ...state.presets,
+];
 const activePreset = (): DemoPreset =>
-  allPresets().find((p) => p.id === state.activeId) ?? builtinPreset();
-const working = (): ThemeConfig => state.working[state.theme];
+  allPresets().find((p) => p.id === state.activeId) ?? { id: BUILTIN_ID, data: BUILTIN, readonly: true };
+const working = (): WorkingLook => state.working;
 const styling = (): ComponentStyling => state.styling[state.theme];
-const isDirty = (): boolean =>
-  JSON.stringify(state.working) !== JSON.stringify(activePreset().themes);
+
+function isDirty(): boolean {
+  const a = activePreset();
+  const saved = lookFromPreset(a.data, state.working.baseTheme, a.palette);
+  const current = JSON.stringify(presetFromLook(state.working, a.data.name));
+  const baseline = JSON.stringify(presetFromLook(saved, a.data.name));
+  if (current !== baseline) return true;
+  return JSON.stringify(state.working.palette) !== JSON.stringify(saved.palette);
+}
 
 // ── dom helpers ──────────────────────────────────────────────────────────────
 
@@ -642,12 +707,12 @@ function rebuildSelect(): void {
     for (const p of list) {
       const opt = document.createElement('option');
       opt.value = p.id;
-      opt.textContent = p.name;
+      opt.textContent = p.data.name;
       g.appendChild(opt);
     }
     presetSelect.appendChild(g);
   };
-  group('Library', [builtinPreset(), ...libPresets]);
+  group('Library', [{ id: BUILTIN_ID, data: BUILTIN, readonly: true }, ...libPresets]);
   group('My presets', state.presets);
   presetSelect.value = state.activeId;
 }
@@ -675,21 +740,25 @@ function refreshAll(): void {
 
 function selectPreset(id: string): void {
   state.activeId = id;
-  state.working = clone(activePreset().themes);
+  const p = activePreset();
+  state.working = lookFromPreset(p.data, state.theme, p.palette);
   applyAll();
   refreshAll();
   save();
 }
 function suggestName(): string {
-  return `${activePreset().name.replace(/ copy.*$/i, '')} copy`;
+  return `${activePreset().data.name.replace(/ copy.*$/i, '')} copy`;
 }
 function duplicatePreset(): void {
   const name = window.prompt('Name this preset', suggestName())?.trim();
   if (!name) return;
-  const preset: DemoPreset = { id: newId(), name, themes: clone(state.working) };
-  state.presets.push(preset);
-  state.activeId = preset.id;
-  rebuildSelect();
+  const stored: StoredPreset = {
+    id: newId(),
+    data: presetFromLook(state.working, name),
+    palette: clone(state.working.palette),
+  };
+  state.presets.push(stored);
+  state.activeId = stored.id;
   refreshAll();
   save();
 }
@@ -700,97 +769,59 @@ function commitSave(): void {
   }
   const target = state.presets.find((p) => p.id === state.activeId);
   if (!target) return;
-  target.themes = clone(state.working);
+  target.data = presetFromLook(state.working, target.data.name);
+  target.palette = clone(state.working.palette);
   refreshDirty();
   save();
 }
 function renamePreset(): void {
   const p = state.presets.find((x) => x.id === state.activeId);
   if (!p) return;
-  const name = window.prompt('Rename preset', p.name)?.trim();
+  const name = window.prompt('Rename preset', p.data.name)?.trim();
   if (!name) return;
-  p.name = name;
+  p.data = { ...p.data, name };
   rebuildSelect();
   save();
 }
 function deletePreset(): void {
   const idx = state.presets.findIndex((x) => x.id === state.activeId);
   if (idx < 0) return;
-  if (!window.confirm(`Delete preset "${state.presets[idx].name}"?`)) return;
+  if (!window.confirm(`Delete preset "${state.presets[idx].data.name}"?`)) return;
   state.presets.splice(idx, 1);
   selectPreset(BUILTIN_ID);
 }
 function revert(): void {
-  state.working = clone(activePreset().themes);
+  const p = activePreset();
+  state.working = lookFromPreset(p.data, state.working.baseTheme, p.palette);
   applyAll();
   refreshAll();
   save();
 }
 
 // ── code export ──────────────────────────────────────────────────────────────
-// The lab's real output: a GlassPreset (only the values that differ from defaults)
-// plus ready-to-paste usage code. Component styling is deliberately excluded.
+// The lab's real output: a GlassPreset (only the values that differ from the baseline
+// theme's defaults) plus ready-to-paste usage code. Component styling is excluded.
 
-function diffParams(t: Theme): Partial<EffectParams> | undefined {
-  const w = state.working[t];
-  const def = EFFECTS[w.effect].defaults[t];
-  /* eslint-disable @typescript-eslint/no-explicit-any */
-  const out: any = {};
-  for (const k of Object.keys(def) as (keyof EffectParams)[]) {
-    if (k === 'colors') {
-      if (JSON.stringify(w.effectParams.colors) !== JSON.stringify(def.colors)) out.colors = [...w.effectParams.colors];
-    } else if (w.effectParams[k] !== def[k]) {
-      out[k] = w.effectParams[k];
-    }
-  }
-  /* eslint-enable @typescript-eslint/no-explicit-any */
-  return Object.keys(out).length ? (out as Partial<EffectParams>) : undefined;
-}
-function diffSettings(t: Theme): Partial<GlassSettings> | undefined {
-  const s = state.working[t].settings;
-  const def = DEFAULT_SETTINGS[t];
-  const out: Partial<GlassSettings> = {};
-  for (const k of ['bgBlur', 'frost', 'frostInset', 'coreInset', 'coreBlur', 'coreOpacity', 'coreProportional', 'saturate'] as const) {
-    if (s[k] !== def[k]) (out as Record<string, unknown>)[k] = s[k];
-  }
-  for (const b of ['innerBloom', 'outerBloom'] as const) {
-    const d: Partial<GlassSettings['innerBloom']> = {};
-    if (s[b].size !== def[b].size) d.size = s[b].size;
-    if (s[b].level !== def[b].level) d.level = s[b].level;
-    if (Object.keys(d).length) (out as Record<string, unknown>)[b] = d;
-  }
-  return Object.keys(out).length ? out : undefined;
-}
-function presetObject(): GlassPreset {
-  const themes = {} as GlassPreset['themes'];
-  for (const t of ['dark', 'light'] as const) {
-    const th: GlassPresetTheme = {};
-    if (state.working[t].effect !== 'panes') th.effect = state.working[t].effect;
-    const ep = diffParams(t);
-    if (ep) th.effectParams = ep;
-    const st = diffSettings(t);
-    if (st) th.settings = st;
-    themes[t] = th;
-  }
-  return { name: activePreset().name, version: 1, themes };
-}
 const tsLiteral = (v: unknown): string =>
   JSON.stringify(v, null, 2)
     .replace(/"([A-Za-z_$][A-Za-z0-9_$]*)":/g, '$1:')
     .replace(/"/g, "'");
 function presetIdent(): string {
-  const raw = activePreset().name
+  const raw = activePreset().data.name
     .replace(/[^A-Za-z0-9]+([A-Za-z0-9])/g, (_, c: string) => c.toUpperCase())
     .replace(/[^A-Za-z0-9]/g, '');
   const ident = raw.charAt(0).toLowerCase() + raw.slice(1);
   return /^[a-z]/.test(ident) && ident !== 'default' ? ident : 'myLook';
+}
+function currentPresetObject(): GlassPreset {
+  return presetFromLook(state.working, activePreset().data.name);
 }
 function reactCode(): string {
   const ident = presetIdent();
   return `import { GlassFx } from 'glass-pulse-fx';
 import type { GlassPreset } from 'glass-pulse-fx';
 
-const ${ident}: GlassPreset = ${tsLiteral(presetObject())};
+const ${ident}: GlassPreset = ${tsLiteral(currentPresetObject())};
 
 export function Example() {
   return (
@@ -808,12 +839,11 @@ function vanillaCode(): string {
   return `import { createGlass } from 'glass-pulse-fx/core';
 import type { GlassPreset } from 'glass-pulse-fx/core';
 
-const ${ident}: GlassPreset = ${tsLiteral(presetObject())};
+const ${ident}: GlassPreset = ${tsLiteral(currentPresetObject())};
 
-const theme = 'dark'; // or 'light'
 const glass = createGlass(document.querySelector('#target')!, {
-  theme,
-  ...${ident}.themes[theme],
+  preset: ${ident},
+  theme: 'dark', // or 'light'
 });
 `;
 }
@@ -822,7 +852,7 @@ function presetFileCode(): string {
   return `// ${ident}.ts — exported from the glass-pulse-fx preset lab
 import type { GlassPreset } from 'glass-pulse-fx';
 
-export const ${ident}: GlassPreset = ${tsLiteral(presetObject())};
+export const ${ident}: GlassPreset = ${tsLiteral(currentPresetObject())};
 `;
 }
 
@@ -852,22 +882,16 @@ function loadFromText(): void {
     flash('Invalid JSON — paste a GlassPreset');
     return;
   }
-  const o = obj as { name?: string; themes?: Record<Theme, GlassPresetTheme> };
-  if (!o.themes?.dark || !o.themes?.light) {
-    flash('Missing themes.dark / themes.light');
+  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+  const o = obj as any;
+  if (!o || typeof o !== 'object' || (!o.effectParams && !o.settings && !o.effect && !o.themes)) {
+    flash('Not a GlassPreset');
     return;
   }
-  const preset: DemoPreset = {
-    id: newId(),
-    name: o.name || 'Imported',
-    themes: {
-      dark: themeFromPreset(o.themes.dark, 'dark'),
-      light: themeFromPreset(o.themes.light, 'light'),
-    },
-  };
-  state.presets.push(preset);
-  state.activeId = preset.id;
-  state.working = clone(preset.themes);
+  const stored: StoredPreset = { id: newId(), ...presetDataFrom(o, 'Imported') };
+  state.presets.push(stored);
+  state.activeId = stored.id;
+  state.working = lookFromPreset(stored.data, state.theme, stored.palette);
   applyAll();
   refreshAll();
   save();
@@ -891,12 +915,13 @@ $('shaderSeg').addEventListener('click', (e) => {
   const btn = (e.target as HTMLElement).closest('button');
   if (!btn) return;
   const id = btn.dataset.effect as EffectId;
-  working().effect = id;
-  working().effectParams = clone(EFFECTS[id].defaults[state.theme]);
-  working().palette = working().effectParams.colors.map((c) => ({ color: c, on: true }));
+  const w = working();
+  w.effect = id;
+  w.effectParams = clone(EFFECTS[id].defaults[w.baseTheme]);
+  w.palette = w.effectParams.colors.map((c) => ({ color: c, on: true }));
   for (const i of instances) {
     i.setEffect(id);
-    i.setEffectParams(working().effectParams);
+    i.setEffectParams(w.effectParams);
   }
   setSeg('shaderSeg', 'effect', id);
   buildEffectControls();
@@ -907,6 +932,8 @@ $('shaderSeg').addEventListener('click', (e) => {
 $('themeSeg').addEventListener('click', (e) => {
   const btn = (e.target as HTMLElement).closest('button');
   if (!btn) return;
+  // the look stays constant — only the page, theme defaults underneath, and the
+  // component styling change. This mirrors how presets behave in real apps.
   state.theme = btn.dataset.theme as Theme;
   applyAll();
   refreshAll();

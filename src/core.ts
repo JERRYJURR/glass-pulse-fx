@@ -34,25 +34,41 @@ function inferKind(el: HTMLElement, radius?: number | string): Kind {
   return 'rect';
 }
 
-export function createGlass(target: HTMLElement, opts: CreateGlassOptions = {}): GlassInstance {
-  let theme: Theme = opts.theme ?? 'dark';
-  let effect: EffectId = opts.effect ?? 'panes';
+// Combine two settings patches (b wins), deep-merging the bloom configs.
+function combinePatches(
+  a?: Partial<GlassSettings>,
+  b?: Partial<GlassSettings>,
+): Partial<GlassSettings> | undefined {
+  if (!a || !b) return a ?? b;
+  const out: Partial<GlassSettings> = { ...a, ...b };
+  if (a.innerBloom && b.innerBloom) out.innerBloom = { ...a.innerBloom, ...b.innerBloom };
+  if (a.outerBloom && b.outerBloom) out.outerBloom = { ...a.outerBloom, ...b.outerBloom };
+  return out;
+}
 
-  // Explicit param overrides accumulate here and stay constant across themes; setTheme
-  // re-bases them onto the new theme's effect defaults (which carry per-theme palettes).
+export function createGlass(target: HTMLElement, opts: CreateGlassOptions = {}): GlassInstance {
+  const preset = opts.preset;
+  let theme: Theme = opts.theme ?? 'dark';
+  let effect: EffectId = opts.effect ?? preset?.effect ?? 'panes';
+
+  // Explicit param overrides (incl. the preset's) accumulate here and stay constant
+  // across themes; setTheme re-bases them onto the new theme's effect defaults, so
+  // anything a preset doesn't pin still adapts per theme.
   let userParams: Partial<EffectParams> = {};
   function rememberParams(patch?: Partial<EffectParams>): void {
     if (!patch) return;
     userParams = { ...userParams, ...patch };
     if (patch.colors) userParams.colors = [...patch.colors];
   }
+  rememberParams(preset?.effectParams);
   rememberParams(opts.effectParams);
   let params: EffectParams = mergeEffectParams(EFFECTS[effect].defaults[theme], userParams);
 
   const fillPinned = opts.fill != null;
   let fill = opts.fill ?? DEFAULT_FILL[theme];
 
-  const basePatch = opts.settings; // creation-time overrides, re-applied on theme switch
+  // creation-time overrides (preset's beneath explicit), re-applied on theme switch
+  const basePatch = combinePatches(preset?.settings, opts.settings);
   let settings: GlassSettings = mergeSettings(DEFAULT_SETTINGS[theme], basePatch);
 
   // border overrides accumulate (like effect params) and re-base onto theme defaults

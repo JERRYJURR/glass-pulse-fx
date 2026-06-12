@@ -70,11 +70,12 @@ glass.destroy();
 
 ## Presets
 
-A `GlassPreset` is a shareable look — shader + params + glass material, for both themes.
-It deliberately carries **no component styling** (`fill` / `border` / `radius`): those
-belong to the component you wrap. Ten presets ship with the package — `auroraVeil`,
-`sonar`, `beacon`, `radar`, `neon`, `ember`, `solar`, `prism`, `bubblegum`, `midnight`
-(plus `LIBRARY_PRESETS`, the full list):
+A `GlassPreset` is one shareable look — shader + params + glass material. It applies
+identically in dark and light mode; anything it does **not** pin (palette, frost, …)
+still adapts to the theme defaults. It deliberately carries **no component styling**
+(`fill` / `border` / `radius`): those belong to the component you wrap. Ten presets
+ship with the package — `auroraVeil`, `sonar`, `beacon`, `radar`, `neon`, `ember`,
+`solar`, `prism`, `bubblegum`, `midnight` (plus `LIBRARY_PRESETS`, the full list):
 
 ```tsx
 import { GlassFx } from 'glass-pulse-fx';
@@ -85,12 +86,19 @@ import { sonar } from 'glass-pulse-fx/presets';
 </GlassFx>
 ```
 
-Vanilla — a preset's theme slice spreads straight into `createGlass`:
+If your site has its own light/dark switch and you want a *different* look per mode,
+pass a different preset per mode — it's one ternary:
+
+```tsx
+<GlassFx preset={isDark ? neon : midnight} theme={isDark ? 'dark' : 'light'}>
+```
+
+Vanilla — `preset` is a `createGlass` option:
 
 ```ts
 import { sonar } from 'glass-pulse-fx/presets';
 
-const glass = createGlass(el, { theme: 'dark', ...sonar.themes.dark });
+const glass = createGlass(el, { preset: sonar });
 ```
 
 Preset files live in [`src/presets/`](src/presets/), one export per file. The preset
@@ -171,8 +179,9 @@ npm run build:demo   # static site -> dist-demo/
 The lab docks all controls in a left sidebar (independently scrollable), shows six shape
 mockups, and keeps your presets in `localStorage` (library presets from
 [`src/presets/`](src/presets/) appear read-only — Duplicate to riff on one). A preset
-captures the shader, its params, and the glass material for **both** themes; component
-styling (fill / border) stays out, as session state. **Export** emits ready-to-paste
+captures the shader, its params, and the glass material as one look — flipping the
+lab's theme shows how that same look reads on the other mode; component styling
+(fill / border) stays out, as session state. **Export** emits ready-to-paste
 React or vanilla code, or a preset file to commit. See
 [SEPARATING-THE-DEMO.md](SEPARATING-THE-DEMO.md) for deploying it standalone.
 

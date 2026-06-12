@@ -78,16 +78,15 @@ export function GlassFx({
   const inst = React.useRef<GlassInstance | null>(null);
   const resolvedTheme = useResolvedTheme(theme);
 
-  // resolution order: explicit props > preset's theme slice > effect/theme defaults
-  const presetTheme = preset?.themes?.[resolvedTheme];
-  const resolvedEffect: EffectId = effect ?? presetTheme?.effect ?? 'panes';
+  // resolution order: explicit props > preset > effect/theme defaults
+  const resolvedEffect: EffectId = effect ?? preset?.effect ?? 'panes';
   const mergedParams: Partial<EffectParams> | undefined =
-    presetTheme?.effectParams || effectParams
-      ? { ...presetTheme?.effectParams, ...effectParams }
+    preset?.effectParams || effectParams
+      ? { ...preset?.effectParams, ...effectParams }
       : undefined;
   const effSettings = (t: Theme): GlassSettings =>
     mergeSettings(
-      mergeSettings(mergeSettings(DEFAULT_SETTINGS[t], preset?.themes?.[t]?.settings), settings),
+      mergeSettings(mergeSettings(DEFAULT_SETTINGS[t], preset?.settings), settings),
       settingsByTheme?.[t],
     );
 
@@ -123,13 +122,9 @@ export function GlassFx({
   }, [JSON.stringify(mergedParams)]);
 
   React.useEffect(() => {
+    // the preset's params persist through this automatically (overrides are
+    // constant across themes); only the merged settings need re-deriving
     inst.current?.setTheme(resolvedTheme);
-    if (preset) {
-      // preset params are per-theme: reset first (setEffect clears accumulated
-      // overrides), then apply the new theme's resolved params
-      inst.current?.setEffect(resolvedEffect);
-      if (mergedParams) inst.current?.setEffectParams(mergedParams);
-    }
     inst.current?.update(effSettings(resolvedTheme));
     if (fill != null) inst.current?.setFill(fill);
   }, [resolvedTheme]);
@@ -152,7 +147,7 @@ export function GlassFx({
 
   React.useEffect(() => {
     inst.current?.update(effSettings(resolvedTheme));
-  }, [JSON.stringify(settings), JSON.stringify(settingsByTheme), JSON.stringify(preset?.themes)]);
+  }, [JSON.stringify(settings), JSON.stringify(settingsByTheme), JSON.stringify(preset?.settings)]);
 
   return (
     <div ref={ref} className={className} style={style}>
