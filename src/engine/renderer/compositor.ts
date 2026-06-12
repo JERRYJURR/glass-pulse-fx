@@ -115,6 +115,10 @@ export function createCompositor(
 
   let cssW = 1;
   let cssH = 1;
+  // exact (unrounded) layout size — the mask must match it, or its corner arcs
+  // stretch subtly off the true curve and hairline rims (small frostInset) go uneven
+  let exactW = 1;
+  let exactH = 1;
   let cornerRadius = 0;
   let settings: GlassSettings | null = null;
   let fill = '#000000';
@@ -205,10 +209,12 @@ export function createCompositor(
   function applyGlassStyle(): void {
     if (!settings) return;
     frost.style.background = withAlpha(fill, settings.frost);
-    // insetting the frost exposes a raw (un-veiled, un-blurred) shader rim at the edge
+    // insetting the frost exposes a raw (un-veiled, un-blurred) shader rim at the edge.
+    // Always carry the concentric radius (outer - inset) so the frost clips its own
+    // backdrop-filter even when the inset is 0.
     const fi = Math.max(0, settings.frostInset ?? 0);
     frost.style.inset = fi + 'px';
-    frost.style.borderRadius = fi > 0 ? Math.max(0, cornerRadius - fi) + 'px' : '0';
+    frost.style.borderRadius = Math.max(0, cornerRadius - fi) + 'px';
     if (supportsBackdrop && !degraded) {
       const shouldFilter = settings.bgBlur > 0 || Math.abs(settings.saturate - 1) > 0.001;
       const bf = shouldFilter ? `saturate(${settings.saturate}) blur(${settings.bgBlur}px)` : 'none';
@@ -241,7 +247,7 @@ export function createCompositor(
       return;
     }
 
-    const mask = roundedRectMaskUrl(cssW, cssH, cornerRadius);
+    const mask = roundedRectMaskUrl(exactW, exactH, cornerRadius);
     const webkitStyle = surfaceClip.style as unknown as Record<string, string>;
     surfaceClip.style.overflow = 'visible';
     surfaceClip.style.borderRadius = '0';
@@ -255,6 +261,8 @@ export function createCompositor(
 
   function measure(): void {
     const r = el.getBoundingClientRect();
+    exactW = Math.max(1, r.width);
+    exactH = Math.max(1, r.height);
     cssW = Math.max(1, Math.round(r.width));
     cssH = Math.max(1, Math.round(r.height));
     cornerRadius = resolveRadius();
