@@ -212,7 +212,7 @@ export const panes: EffectDef = {
         { label: 'Orbit', value: 3 },
       ],
     },
-    { kind: 'slider', key: 'speed', label: 'Speed', min: -1, max: 1, step: 0.01 },
+    { kind: 'slider', key: 'speed', label: 'Speed', min: -2, max: 2, step: 0.01 },
     {
       kind: 'select', key: 'velocity', label: 'Velocity',
       options: VELOCITY_PRESETS.map((v, i) => ({ label: v.label, value: i })),
