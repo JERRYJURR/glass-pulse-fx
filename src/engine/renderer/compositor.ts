@@ -311,6 +311,9 @@ export function createCompositor(
     return Math.min(sourceInset, Math.max(0, Math.min(cssW, cssH) / 2 - 0.5));
   }
 
+  // Two perpendicular edges' blur overlaps near a corner (~2x energy at the corner
+  // point, falling off with distance), so the counter-correction is a radial falloff
+  // centred on each corner — a flat rect reads as a visible dip + seam in the glow.
   function attenuateBloomCorners(ctx: CanvasRenderingContext2D, b: Bloom, x: number, y: number, w: number, h: number): void {
     const min = Math.min(cssW, cssH);
     if (b.blur <= 0) return;
@@ -319,11 +322,13 @@ export function createCompositor(
     const zone = Math.min(min / 2, cornerRadius + b.blur * 1.25) * b.scale;
     const amount = Math.min(0.55, 0.14 + b.blur / 45);
     ctx.globalCompositeOperation = 'destination-out';
-    ctx.fillStyle = `rgba(0, 0, 0, ${amount})`;
-    ctx.fillRect(x, y, zone, zone);
-    ctx.fillRect(x + w - zone, y, zone, zone);
-    ctx.fillRect(x, y + h - zone, zone, zone);
-    ctx.fillRect(x + w - zone, y + h - zone, zone, zone);
+    for (const [cx, cy] of [[x, y], [x + w, y], [x, y + h], [x + w, y + h]] as const) {
+      const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, zone);
+      g.addColorStop(0, `rgba(0, 0, 0, ${amount})`);
+      g.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(cx - zone, cy - zone, zone * 2, zone * 2);
+    }
   }
 
   function paintBloom(b: Bloom, crop: Crop, glCanvas: HTMLCanvasElement): void {
