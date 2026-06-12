@@ -72,13 +72,34 @@ function roundedRectMaskUrl(width: number, height: number, radius: number, inset
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
 }
 
-function roundedRectStrokeMaskUrl(width: number, height: number, radius: number, strokeWidth: number): string {
-  const sw = Math.max(0, strokeWidth);
-  const inset = sw / 2;
-  const w = Math.max(1, width - sw);
-  const h = Math.max(1, height - sw);
-  const r = Math.max(0, radius - inset);
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none"><rect x="${inset}" y="${inset}" width="${w}" height="${h}" rx="${r}" ry="${r}" fill="none" stroke="white" stroke-width="${sw}"/></svg>`;
+function roundedRectPath(x: number, y: number, width: number, height: number, radius: number): string {
+  const w = Math.max(1, width);
+  const h = Math.max(1, height);
+  const r = Math.max(0, Math.min(radius, w / 2, h / 2));
+  const x2 = x + w;
+  const y2 = y + h;
+  if (r <= 0) return `M${x},${y}H${x2}V${y2}H${x}Z`;
+  return [
+    `M${x + r},${y}`,
+    `H${x2 - r}`,
+    `A${r},${r} 0 0 1 ${x2},${y + r}`,
+    `V${y2 - r}`,
+    `A${r},${r} 0 0 1 ${x2 - r},${y2}`,
+    `H${x + r}`,
+    `A${r},${r} 0 0 1 ${x},${y2 - r}`,
+    `V${y + r}`,
+    `A${r},${r} 0 0 1 ${x + r},${y}`,
+    'Z',
+  ].join('');
+}
+
+function roundedRectRingMaskUrl(width: number, height: number, radius: number, inset: number): string {
+  const i = Math.max(0, inset);
+  const innerW = Math.max(1, width - i * 2);
+  const innerH = Math.max(1, height - i * 2);
+  const outer = roundedRectPath(0, 0, width, height, radius);
+  const inner = roundedRectPath(i, i, innerW, innerH, Math.max(0, radius - i));
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none"><path d="${outer}${inner}" fill="white" fill-rule="evenodd"/></svg>`;
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
 }
 
@@ -158,6 +179,8 @@ export function createCompositor(
   // stretch subtly off the true curve and hairline rims (small frostInset) go uneven
   let exactW = 1;
   let exactH = 1;
+  let layerX = 0;
+  let layerY = 0;
   let cornerRadius = 0;
   let settings: GlassSettings | null = null;
   let fill = '#000000';
@@ -230,8 +253,8 @@ export function createCompositor(
     const ch = cssH + spread * 2;
     assign(b.el, {
       display: 'block',
-      left: -spread + 'px',
-      top: -spread + 'px',
+      left: layerX - spread + 'px',
+      top: layerY - spread + 'px',
       width: cw + 'px',
       height: ch + 'px',
       filter: `blur(${size}px)`,
@@ -273,7 +296,7 @@ export function createCompositor(
       if (plasma) applyMask(plasma, innerMask);
       if (rim) {
         rim.style.display = 'block';
-        applyMask(rim, roundedRectStrokeMaskUrl(exactW, exactH, cornerRadius, fi));
+        applyMask(rim, roundedRectRingMaskUrl(exactW, exactH, cornerRadius, fi));
       }
     } else {
       frost.style.inset = fi + 'px';
@@ -304,6 +327,7 @@ export function createCompositor(
   function applyBorder(): void {
     if (!borderCfg) return;
     border.style.borderRadius = cornerRadius + 'px';
+    border.style.boxSizing = 'border-box';
     border.style.border = `${borderCfg.width}px solid ${withAlpha(
       borderCfg.color,
       borderCfg.opacity,
@@ -331,19 +355,40 @@ export function createCompositor(
 
   function measure(): void {
     const r = el.getBoundingClientRect();
-    exactW = Math.max(1, r.width);
-    exactH = Math.max(1, r.height);
-    cssW = Math.max(1, Math.round(r.width));
-    cssH = Math.max(1, Math.round(r.height));
+    const snappedLeft = Math.round(r.left * DPR) / DPR;
+    const snappedTop = Math.round(r.top * DPR) / DPR;
+    const snappedRight = Math.round(r.right * DPR) / DPR;
+    const snappedBottom = Math.round(r.bottom * DPR) / DPR;
+    layerX = snappedLeft - r.left;
+    layerY = snappedTop - r.top;
+    exactW = Math.max(1, snappedRight - snappedLeft);
+    exactH = Math.max(1, snappedBottom - snappedTop);
+    cssW = exactW;
+    cssH = exactH;
     cornerRadius = resolveRadius();
 
+    assign(surfaceClip, {
+      inset: 'auto',
+      left: layerX + 'px',
+      top: layerY + 'px',
+      width: exactW + 'px',
+      height: exactH + 'px',
+    });
+    assign(border, {
+      inset: 'auto',
+      left: layerX + 'px',
+      top: layerY + 'px',
+      width: exactW + 'px',
+      height: exactH + 'px',
+    });
+
     if (plasma) {
-      plasma.width = Math.round(cssW * DPR);
-      plasma.height = Math.round(cssH * DPR);
+      plasma.width = Math.round(exactW * DPR);
+      plasma.height = Math.round(exactH * DPR);
     }
     if (rim) {
-      rim.width = Math.round(cssW * DPR);
-      rim.height = Math.round(cssH * DPR);
+      rim.width = Math.round(exactW * DPR);
+      rim.height = Math.round(exactH * DPR);
     }
     applySurfaceClip();
 
