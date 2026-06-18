@@ -8,6 +8,7 @@ export const CLASS = {
   bloomOut: `${PREFIX}-bloom-out`,
   bloomIn: `${PREFIX}-bloom-in`,
   surfaceClip: `${PREFIX}-surface-clip`,
+  base: `${PREFIX}-base`,
   shader: `${PREFIX}-shader`,
   frost: `${PREFIX}-frost`,
   rim: `${PREFIX}-rim`,
@@ -26,14 +27,15 @@ export const STRUCT: Record<keyof typeof CLASS, Style> = {
     position: 'absolute', inset: '0', pointerEvents: 'none',
     zIndex: '2', overflow: 'hidden',
   },
+  base: { position: 'absolute', inset: '0', pointerEvents: 'none', zIndex: '0' },
   shader: {
     position: 'absolute', inset: '0', width: '100%', height: '100%',
-    pointerEvents: 'none', zIndex: '0',
+    pointerEvents: 'none', zIndex: '1',
   },
-  frost: { position: 'absolute', inset: '0', pointerEvents: 'none', zIndex: '1' },
+  frost: { position: 'absolute', inset: '0', pointerEvents: 'none', zIndex: '2' },
   rim: {
     position: 'absolute', inset: '0', width: '100%', height: '100%',
-    pointerEvents: 'none', zIndex: '2',
+    pointerEvents: 'none', zIndex: '3',
   },
   coreClip: {
     position: 'absolute', inset: '0', pointerEvents: 'none',

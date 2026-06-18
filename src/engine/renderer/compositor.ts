@@ -38,6 +38,9 @@ interface Bloom {
   enabled: boolean;
 }
 
+const MASK_AA_SCALE = 2;
+const RIM_AA_SCALE = 2;
+
 export interface Compositor {
   measure(): void;
   applyStyle(settings: GlassSettings, fill: string, borderCfg: BorderConfig): void;
@@ -62,45 +65,20 @@ function mk<K extends keyof typeof CLASS>(
   return e;
 }
 
+function svgMaskUrl(width: number, height: number, body: string): string {
+  const rasterW = Math.max(1, Math.ceil(width * DPR * MASK_AA_SCALE));
+  const rasterH = Math.max(1, Math.ceil(height * DPR * MASK_AA_SCALE));
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${rasterW}" height="${rasterH}" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" shape-rendering="geometricPrecision">${body}</svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
+
 function roundedRectMaskUrl(width: number, height: number, radius: number, inset = 0): string {
   const x = Math.max(0, inset);
   const y = Math.max(0, inset);
   const w = Math.max(1, width - x * 2);
   const h = Math.max(1, height - y * 2);
   const r = Math.max(0, radius - inset);
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" ry="${r}" fill="white"/></svg>`;
-  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
-}
-
-function roundedRectPath(x: number, y: number, width: number, height: number, radius: number): string {
-  const w = Math.max(1, width);
-  const h = Math.max(1, height);
-  const r = Math.max(0, Math.min(radius, w / 2, h / 2));
-  const x2 = x + w;
-  const y2 = y + h;
-  if (r <= 0) return `M${x},${y}H${x2}V${y2}H${x}Z`;
-  return [
-    `M${x + r},${y}`,
-    `H${x2 - r}`,
-    `A${r},${r} 0 0 1 ${x2},${y + r}`,
-    `V${y2 - r}`,
-    `A${r},${r} 0 0 1 ${x2 - r},${y2}`,
-    `H${x + r}`,
-    `A${r},${r} 0 0 1 ${x},${y2 - r}`,
-    `V${y + r}`,
-    `A${r},${r} 0 0 1 ${x + r},${y}`,
-    'Z',
-  ].join('');
-}
-
-function roundedRectRingMaskUrl(width: number, height: number, radius: number, inset: number): string {
-  const i = Math.max(0, inset);
-  const innerW = Math.max(1, width - i * 2);
-  const innerH = Math.max(1, height - i * 2);
-  const outer = roundedRectPath(0, 0, width, height, radius);
-  const inner = roundedRectPath(i, i, innerW, innerH, Math.max(0, radius - i));
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none"><path d="${outer}${inner}" fill="white" fill-rule="evenodd"/></svg>`;
-  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+  return svgMaskUrl(width, height, `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" ry="${r}" fill="white"/>`);
 }
 
 function applyMask(el: HTMLElement, mask: string): void {
@@ -127,6 +105,14 @@ function bloomEnabled(size: number, level: number): boolean {
   return size > 0 && level > 0;
 }
 
+interface LayerRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  radius: number;
+}
+
 export function createCompositor(
   el: HTMLElement,
   kind: Kind,
@@ -141,6 +127,7 @@ export function createCompositor(
   el.style.isolation = 'isolate';
 
   const surfaceClip = mk('div', 'surfaceClip');
+  const base = mk('div', 'base');
   const frost = mk('div', 'frost');
   const coreClip = mk('div', 'coreClip');
   const core = mk('div', 'core');
@@ -155,6 +142,7 @@ export function createCompositor(
   let bOut: Bloom | null = null;
 
   const nodes: HTMLElement[] = [];
+  surfaceClip.appendChild(base);
   if (!degraded) {
     const bloomOut = mk('canvas', 'bloomOut') as HTMLCanvasElement;
     const bloomIn = mk('canvas', 'bloomIn') as HTMLCanvasElement;
@@ -167,8 +155,10 @@ export function createCompositor(
     surfaceClip.appendChild(plasma);
     nodes.push(bloomOut, bloomIn);
   }
-  surfaceClip.append(...(rim ? [frost, rim, coreClip] : [frost, coreClip]));
-  nodes.push(surfaceClip, border);
+  surfaceClip.append(frost, coreClip);
+  nodes.push(surfaceClip);
+  if (rim) nodes.push(rim);
+  nodes.push(border);
 
   const first = el.firstChild;
   for (const n of nodes) el.insertBefore(n, first);
@@ -231,6 +221,45 @@ export function createCompositor(
     return clampRadius(radiusFromCssValue(getComputedStyle(el).borderRadius) ?? 0);
   }
 
+  function maxLayerInset(): number {
+    return Math.max(0, Math.min(cssW, cssH) / 2 - 0.5);
+  }
+
+  function clampLayerInset(value: number): number {
+    return Math.min(Math.max(0, value), maxLayerInset());
+  }
+
+  function frostInset(): number {
+    return settings ? clampLayerInset(settings.frostInset ?? 0) : 0;
+  }
+
+  function shaderInset(): number {
+    return settings ? clampLayerInset(settings.shaderInset ?? 0) : 0;
+  }
+
+  function rimVisible(): boolean {
+    return !!rim && supportsMask && frostInset() > shaderInset();
+  }
+
+  function mainShaderInset(): number {
+    return rimVisible() ? frostInset() : shaderInset();
+  }
+
+  function layerRect(inset: number, scaleX: number, scaleY: number, ox = 0, oy = 0): LayerRect {
+    const i = clampLayerInset(inset);
+    return {
+      x: ox + i * scaleX,
+      y: oy + i * scaleY,
+      width: Math.max(1, (cssW - i * 2) * scaleX),
+      height: Math.max(1, (cssH - i * 2) * scaleY),
+      radius: Math.max(0, cornerRadius - i) * Math.min(scaleX, scaleY),
+    };
+  }
+
+  function addRoundedRect(ctx: CanvasRenderingContext2D, rect: LayerRect): void {
+    ctx.roundRect(rect.x, rect.y, rect.width, rect.height, rect.radius);
+  }
+
   function layoutBloom(b: Bloom, cfg: BloomConfig): void {
     const { size, level } = cfg;
     b.enabled = bloomEnabled(size, level);
@@ -270,9 +299,15 @@ export function createCompositor(
 
   function applyGlassStyle(): void {
     if (!settings) return;
+    base.style.background = fill;
     frost.style.background = withAlpha(fill, settings.frost);
     // insetting the frost exposes a raw (un-veiled, un-blurred) shader rim at the edge.
-    const fi = Math.max(0, settings.frostInset ?? 0);
+    const fi = frostInset();
+    if (plasma) {
+      plasma.style.inset = '0';
+      plasma.style.borderRadius = '0';
+      clearMask(plasma);
+    }
     if (fi <= 0) {
       // Flush frost should be clipped only by surfaceClip. A second rounded clip
       // antialiases independently from the outer mask and can leak shader pixels
@@ -280,28 +315,25 @@ export function createCompositor(
       frost.style.inset = '0';
       frost.style.borderRadius = '0';
       clearMask(frost);
-      if (plasma) clearMask(plasma);
       if (rim) {
         rim.style.display = 'none';
         clearMask(rim);
       }
     } else if (supportsMask) {
       // Keep frost in the same layout box as surfaceClip and draw the inset rect
-      // inside the SVG mask. The raw rim is its own stroked shader layer, avoiding
-      // a half-pixel "outer filled mask minus inner filled mask" subtraction.
+      // inside the SVG mask. The raw rim is clipped in its own canvas so the thin
+      // outline doesn't pick up a second, independently-rasterized CSS mask edge.
       frost.style.inset = '0';
       frost.style.borderRadius = '0';
       const innerMask = roundedRectMaskUrl(exactW, exactH, cornerRadius, fi);
       applyMask(frost, innerMask);
-      if (plasma) applyMask(plasma, innerMask);
       if (rim) {
-        rim.style.display = 'block';
-        applyMask(rim, roundedRectRingMaskUrl(exactW, exactH, cornerRadius, fi));
+        rim.style.display = rimVisible() ? 'block' : 'none';
+        clearMask(rim);
       }
     } else {
       frost.style.inset = fi + 'px';
       clearMask(frost);
-      if (plasma) clearMask(plasma);
       if (rim) {
         rim.style.display = 'none';
         clearMask(rim);
@@ -381,14 +413,23 @@ export function createCompositor(
       width: exactW + 'px',
       height: exactH + 'px',
     });
+    if (rim) {
+      assign(rim, {
+        inset: 'auto',
+        left: layerX + 'px',
+        top: layerY + 'px',
+        width: exactW + 'px',
+        height: exactH + 'px',
+      });
+    }
 
     if (plasma) {
       plasma.width = Math.round(exactW * DPR);
       plasma.height = Math.round(exactH * DPR);
     }
     if (rim) {
-      rim.width = Math.round(exactW * DPR);
-      rim.height = Math.round(exactH * DPR);
+      rim.width = Math.round(exactW * DPR * RIM_AA_SCALE);
+      rim.height = Math.round(exactH * DPR * RIM_AA_SCALE);
     }
     applySurfaceClip();
 
@@ -399,22 +440,24 @@ export function createCompositor(
     applyBorder();
   }
 
-  function cropForButton(glCanvas: HTMLCanvasElement): Crop {
+  function cropForSize(glCanvas: HTMLCanvasElement, targetW: number, targetH: number): Crop {
     const cw = glCanvas.width;
     const ch = glCanvas.height;
+    const safeW = Math.max(1, targetW);
+    const safeH = Math.max(1, targetH);
     if (isotropic) {
       // largest centered window matching the element's aspect: x and y magnification
       // come out equal, so field-space circles and angles render screen-true
       let srcW = cw;
-      let srcH = (cw * cssH) / cssW;
+      let srcH = (cw * safeH) / safeW;
       if (srcH > ch) {
-        srcW = (ch * cssW) / cssH;
+        srcW = (ch * safeW) / safeH;
         srcH = ch;
       }
       return { sx: (cw - srcW) / 2, sy: (ch - srcH) / 2, srcW, srcH };
     }
-    const sampleW = Math.max(cssW, CROP_W * shaderScale * MIN_SAMPLE_SPAN);
-    const sampleH = Math.max(cssH, CROP_H * shaderScale * MIN_SAMPLE_SPAN);
+    const sampleW = Math.max(safeW, CROP_W * shaderScale * MIN_SAMPLE_SPAN);
+    const sampleH = Math.max(safeH, CROP_H * shaderScale * MIN_SAMPLE_SPAN);
     let srcW = (sampleW * cw) / CROP_W / shaderScale;
     let srcH = (sampleH * ch) / CROP_H / shaderScale;
     if (srcW > cw) srcW = cw;
@@ -427,18 +470,28 @@ export function createCompositor(
     if (b.blur <= 0) return 0;
     const rim = settings.coreInset + Math.max(settings.coreBlur, b.blur) * 0.5;
     const sourceInset = Math.max(2, b.blur, rim);
-    return Math.min(sourceInset, Math.max(0, Math.min(cssW, cssH) / 2 - 0.5));
+    const source = layerRect(shaderInset(), 1, 1);
+    const maxInset = Math.max(0, Math.min(source.width, source.height) / 2 - 0.5);
+    return Math.min(sourceInset, maxInset);
   }
 
   // Two perpendicular edges' blur overlaps near a corner (~2x energy at the corner
   // point, falling off with distance), so the counter-correction is a radial falloff
   // centred on each corner — a flat rect reads as a visible dip + seam in the glow.
-  function attenuateBloomCorners(ctx: CanvasRenderingContext2D, b: Bloom, x: number, y: number, w: number, h: number): void {
-    const min = Math.min(cssW, cssH);
+  function attenuateBloomCorners(
+    ctx: CanvasRenderingContext2D,
+    b: Bloom,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    radius: number,
+  ): void {
+    const min = Math.min(w, h);
     if (b.blur <= 0) return;
-    if (cornerRadius <= 0 || cornerRadius >= min / 2 - 0.5) return;
+    if (radius <= 0 || radius >= min / 2 - 0.5) return;
 
-    const zone = Math.min(min / 2, cornerRadius + b.blur * 1.25) * b.scale;
+    const zone = Math.min(min / 2, radius + b.blur * b.scale * 1.25);
     const amount = Math.min(0.55, 0.14 + b.blur / 45);
     ctx.globalCompositeOperation = 'destination-out';
     for (const [cx, cy] of [[x, y], [x + w, y], [x, y + h], [x + w, y + h]] as const) {
@@ -450,50 +503,100 @@ export function createCompositor(
     }
   }
 
+  function drawShaderField(
+    ctx: CanvasRenderingContext2D,
+    crop: Crop,
+    glCanvas: HTMLCanvasElement,
+    rect: LayerRect,
+  ): void {
+    ctx.drawImage(glCanvas, crop.sx, crop.sy, crop.srcW, crop.srcH, rect.x, rect.y, rect.width, rect.height);
+  }
+
   function paintBloom(b: Bloom, crop: Crop, glCanvas: HTMLCanvasElement): void {
     if (!b.enabled) return;
     const ctx = b.ctx;
     const s = b.scale;
     const sp = b.spread;
     ctx.clearRect(0, 0, b.el.width, b.el.height);
-    const dx = sp * s;
-    const dy = sp * s;
-    const dW = cssW * s;
-    const dH = cssH * s;
-    const radius = cornerRadius * s;
+    const sourceInset = bloomSourceInset(b);
+    if (sourceInset <= 0) return;
+    const outer = layerRect(shaderInset(), s, s, sp * s, sp * s);
+
     ctx.save();
     ctx.beginPath();
-    ctx.roundRect(dx, dy, dW, dH, radius);
+    addRoundedRect(ctx, outer);
     ctx.clip();
-    ctx.drawImage(glCanvas, crop.sx, crop.sy, crop.srcW, crop.srcH, dx, dy, dW, dH);
+    drawShaderField(ctx, crop, glCanvas, outer);
 
-    const inset = bloomSourceInset(b) * s;
-    const iW = dW - inset * 2;
-    const iH = dH - inset * 2;
-    if (iW > 0 && iH > 0) {
+    const inset = sourceInset * s;
+    const inner: LayerRect = {
+      x: outer.x + inset,
+      y: outer.y + inset,
+      width: outer.width - inset * 2,
+      height: outer.height - inset * 2,
+      radius: Math.max(0, outer.radius - inset),
+    };
+    if (inner.width > 0 && inner.height > 0) {
       ctx.globalCompositeOperation = 'destination-out';
       ctx.beginPath();
-      ctx.roundRect(dx + inset, dy + inset, iW, iH, Math.max(0, radius - inset));
+      addRoundedRect(ctx, inner);
       ctx.fill();
     }
-    attenuateBloomCorners(ctx, b, dx, dy, dW, dH);
+    attenuateBloomCorners(ctx, b, outer.x, outer.y, outer.width, outer.height, outer.radius);
     ctx.restore();
+  }
+
+  function paintMainShader(crop: Crop, glCanvas: HTMLCanvasElement): void {
+    if (!plasma || !pctx) return;
+    const dw = plasma.width;
+    const dh = plasma.height;
+    if (dw < 1 || dh < 1) return;
+
+    const sx = dw / exactW;
+    const sy = dh / exactH;
+    const source = layerRect(shaderInset(), sx, sy);
+    const visible = layerRect(mainShaderInset(), sx, sy);
+
+    pctx.clearRect(0, 0, dw, dh);
+    pctx.save();
+    pctx.beginPath();
+    addRoundedRect(pctx, visible);
+    pctx.clip();
+    drawShaderField(pctx, crop, glCanvas, source);
+    pctx.restore();
+  }
+
+  function paintRim(crop: Crop, glCanvas: HTMLCanvasElement): void {
+    if (!rim || !rctx || !settings) return;
+    const dw = rim.width;
+    const dh = rim.height;
+    if (dw < 1 || dh < 1) return;
+    rctx.clearRect(0, 0, dw, dh);
+    if (rim.style.display === 'none' || !rimVisible()) return;
+
+    const sx = dw / exactW;
+    const sy = dh / exactH;
+    const outer = layerRect(shaderInset(), sx, sy);
+    const inner = layerRect(frostInset(), sx, sy);
+    rctx.save();
+    rctx.imageSmoothingEnabled = true;
+    rctx.imageSmoothingQuality = 'high';
+    rctx.beginPath();
+    addRoundedRect(rctx, outer);
+    addRoundedRect(rctx, inner);
+    rctx.clip('evenodd');
+    drawShaderField(rctx, crop, glCanvas, outer);
+    rctx.restore();
   }
 
   function paint(glCanvas: HTMLCanvasElement): void {
     if (!plasma || !pctx) return;
-    const crop = cropForButton(glCanvas);
+    const source = layerRect(shaderInset(), 1, 1);
+    const crop = cropForSize(glCanvas, source.width, source.height);
     if (bOut?.enabled) paintBloom(bOut, crop, glCanvas);
     if (bIn?.enabled) paintBloom(bIn, crop, glCanvas);
-    const dw = plasma.width;
-    const dh = plasma.height;
-    if (dw < 1 || dh < 1) return;
-    pctx.clearRect(0, 0, dw, dh);
-    pctx.drawImage(glCanvas, crop.sx, crop.sy, crop.srcW, crop.srcH, 0, 0, dw, dh);
-    if (rim && rctx && rim.style.display !== 'none') {
-      rctx.clearRect(0, 0, rim.width, rim.height);
-      rctx.drawImage(glCanvas, crop.sx, crop.sy, crop.srcW, crop.srcH, 0, 0, rim.width, rim.height);
-    }
+    paintMainShader(crop, glCanvas);
+    paintRim(crop, glCanvas);
   }
 
   return {

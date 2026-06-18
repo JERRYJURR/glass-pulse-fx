@@ -83,6 +83,7 @@ function pickSettings(s: GlassSettings): GlassSettings {
     bgBlur: s.bgBlur,
     frost: s.frost,
     frostInset: s.frostInset,
+    shaderInset: s.shaderInset,
     coreInset: s.coreInset,
     coreBlur: s.coreBlur,
     coreOpacity: s.coreOpacity,
@@ -144,7 +145,7 @@ function diffSettings(look: WorkingLook): Partial<GlassSettings> | undefined {
   const s = look.settings;
   const def = DEFAULT_SETTINGS[look.baseTheme];
   const out: Partial<GlassSettings> = {};
-  for (const k of ['bgBlur', 'frost', 'frostInset', 'coreInset', 'coreBlur', 'coreOpacity', 'coreProportional', 'saturate'] as const) {
+  for (const k of ['bgBlur', 'frost', 'frostInset', 'shaderInset', 'coreInset', 'coreBlur', 'coreOpacity', 'coreProportional', 'saturate'] as const) {
     if (s[k] !== def[k]) (out as Record<string, unknown>)[k] = s[k];
   }
   for (const b of ['innerBloom', 'outerBloom'] as const) {
@@ -526,6 +527,7 @@ function buildStaticControls(): void {
   glassSlider(glass, 'bgBlur', 'BG blur', 0, 20, 0.5, px1);
   glassSlider(glass, 'frost', 'Frost level', 0.3, 1, 0.02, f2);
   glassSlider(glass, 'frostInset', 'Frost inset', 0, 12, 0.5, px1);
+  glassSlider(glass, 'shaderInset', 'Shader inset', 0, 28, 1, px0);
   glassSlider(glass, 'coreInset', 'Core inset', 0, 28, 1, px0);
   glassSlider(glass, 'coreBlur', 'Core blur', 0, 32, 1, px0);
   glassSlider(glass, 'coreOpacity', 'Core opacity', 0, 1, 0.02, f2);

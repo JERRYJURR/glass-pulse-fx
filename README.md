@@ -123,13 +123,14 @@ defaults.
 | `settings` | `Partial<GlassSettings>` | — | glass material, merged onto theme defaults |
 | `settingsByTheme` | `Partial<Record<Theme, Partial<GlassSettings>>>` | — | per-theme glass overrides (React) |
 
-### `GlassSettings` (the glass material — shader-independent)
+### `GlassSettings` (the glass material — effect-independent)
 
 | Field | Range | Default (dark) | Meaning |
 |---|---|---|---|
 | `bgBlur` | 0–20 px | 6 | frost background-blur |
 | `frost` | 0.3–1 | 0.66 | frost tint opacity over the shader |
 | `frostInset` | 0–12 px | 0 | insets the frost veil, exposing a raw full-brightness shader rim at the edge |
+| `shaderInset` | 0–28 px | 0 | insets the animated shader source/bloom from the outer edge |
 | `coreInset` | 0–28 px | 8 | opaque core inset from edge |
 | `coreBlur` | 0–32 px | 8 | layer blur softening core → rim |
 | `coreOpacity` | 0–1 | 1 | core opacity (lower = shader shows through the center) |
@@ -141,7 +142,7 @@ defaults.
 ## How it works
 
 Per instance, bottom → top: **outer bloom** · **inner bloom** · a shared rounded
-**surface mask** containing the **shader** crop, **frost** (`backdrop-filter:
+**surface mask** containing a **base fill**, the insettable **shader** crop, **frost** (`backdrop-filter:
 saturate() blur()` over a `fill@frost` tint), and **core** (an inset, layer-blurred
 opaque fill) · **border** · then your content. The wrapper is `position:relative;
 isolation:isolate` and is **not** `overflow:hidden` (the blooms must spill). All effect

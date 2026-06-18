@@ -1,5 +1,5 @@
 // Public types for glass-pulse-fx.
-// `GlassSettings` is the framework-agnostic glass material config (shader-independent).
+// `GlassSettings` is the framework-agnostic glass material config (effect-independent).
 // `EffectParams` is the shader's own parameter set (panes, and any you add).
 
 export type Theme = 'dark' | 'light';
@@ -29,6 +29,8 @@ export interface GlassSettings {
   frost: number;
   /** frost veil inset from the edge in px — exposes a raw, un-veiled shader rim inside the silhouette */
   frostInset: number;
+  /** shader source inset from the edge in px — pulls the animated light inward */
+  shaderInset: number;
   coreInset: number;
   coreBlur: number;
   /** opaque-core opacity, 0..1 (1 = fully hides the shader in the center) */
