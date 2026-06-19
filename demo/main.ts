@@ -23,6 +23,7 @@ import type {
   GlassInstance,
   GlassPreset,
   GlassSettings,
+  GlassSettingsPatch,
   Kind,
   Theme,
 } from '../src/core';
@@ -71,7 +72,22 @@ interface DemoState {
 }
 
 const KEY = 'glass-pulse-fx:demo:v2';
-const BUILTIN_ID = 'builtin-default';
+const DEFAULT_PRESET_ID = 'lib-bloom';
+const LEGACY_PRESET_IDS: Record<string, string> = {
+  'builtin-default': DEFAULT_PRESET_ID,
+  'lib-chroma-bloom': DEFAULT_PRESET_ID,
+  'lib-retrograde-halo': 'lib-halo',
+  'lib-sorbet-rush': 'lib-rush',
+  'lib-halo-sweep': 'lib-comet',
+  'lib-cinderfall': 'lib-cinder',
+  'lib-plasma-rift': 'lib-plasma',
+  'lib-kaleidoscope': 'lib-kaleido',
+  'lib-monochrome-orbit': 'lib-nimbus',
+  'lib-verdant-pulse': 'lib-emerald',
+  'lib-dark1': 'lib-glow',
+  'lib-citrus-tide': 'lib-tide',
+  'lib-abyssal-orbit': 'lib-tide',
+};
 const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x)) as T;
 let idSeq = 0;
 const newId = () => `p-${Date.now().toString(36)}-${idSeq++}`;
@@ -141,10 +157,10 @@ function diffParams(look: WorkingLook): Partial<EffectParams> | undefined {
   /* eslint-enable @typescript-eslint/no-explicit-any */
   return Object.keys(out).length ? (out as Partial<EffectParams>) : undefined;
 }
-function diffSettings(look: WorkingLook): Partial<GlassSettings> | undefined {
+function diffSettings(look: WorkingLook): GlassSettingsPatch | undefined {
   const s = look.settings;
   const def = DEFAULT_SETTINGS[look.baseTheme];
-  const out: Partial<GlassSettings> = {};
+  const out: GlassSettingsPatch = {};
   for (const k of ['bgBlur', 'frost', 'frostInset', 'shaderInset', 'coreInset', 'coreBlur', 'coreOpacity', 'coreProportional', 'saturate'] as const) {
     if (s[k] !== def[k]) (out as Record<string, unknown>)[k] = s[k];
   }
@@ -166,12 +182,20 @@ function presetFromLook(look: WorkingLook, name: string): GlassPreset {
   return out;
 }
 
-const BUILTIN: GlassPreset = { name: 'Default', version: 1 };
 const libPresets: DemoPreset[] = LIBRARY_PRESETS.map((p) => ({
   id: 'lib-' + p.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
   data: p,
   readonly: true,
 }));
+const defaultPreset = libPresets.find((p) => p.id === DEFAULT_PRESET_ID) ?? libPresets[0];
+
+function normalizeActiveId(id: unknown, presets: StoredPreset[]): string {
+  const raw = typeof id === 'string' ? id : DEFAULT_PRESET_ID;
+  const migrated = LEGACY_PRESET_IDS[raw] ?? raw;
+  return libPresets.some((p) => p.id === migrated) || presets.some((p) => p.id === migrated)
+    ? migrated
+    : DEFAULT_PRESET_ID;
+}
 
 function freshStyling(): Record<Theme, ComponentStyling> {
   return {
@@ -183,11 +207,11 @@ function freshState(): DemoState {
   return {
     version: 4,
     presets: [],
-    activeId: BUILTIN_ID,
+    activeId: DEFAULT_PRESET_ID,
     theme: 'dark',
     fps: 30,
     styling: freshStyling(),
-    working: lookFromPreset(BUILTIN, 'dark'),
+    working: lookFromPreset(defaultPreset.data, 'dark'),
   };
 }
 
@@ -249,11 +273,18 @@ function loadState(): DemoState {
           { name: 'w', effect: s.working.effect, effectParams: s.working.effectParams, settings: s.working.settings, palette: s.working.palette },
           'w',
         );
-        const working = lookFromPreset(wp.data, baseTheme, wp.palette);
+        const presets = ((s.presets ?? []) as any[]).map((p) => ({
+          id: typeof p.id === 'string' ? p.id : newId(),
+          ...presetDataFrom(p.data ?? p, 'Untitled'),
+        }));
+        const activeId = normalizeActiveId(s.activeId, presets);
+        const working = s.activeId === 'builtin-default'
+          ? lookFromPreset(defaultPreset.data, baseTheme)
+          : lookFromPreset(wp.data, baseTheme, wp.palette);
         return {
           version: 4,
-          presets: ((s.presets ?? []) as any[]).map((p) => ({ id: typeof p.id === 'string' ? p.id : newId(), ...presetDataFrom(p.data ?? p, 'Untitled') })),
-          activeId: typeof s.activeId === 'string' ? s.activeId : BUILTIN_ID,
+          presets,
+          activeId,
           theme,
           fps: normalizeFps(s.fps),
           styling: normalizeStyling(s),
@@ -263,13 +294,15 @@ function loadState(): DemoState {
       if ((s?.version === 2 || s?.version === 3) && s.working?.dark?.effectParams) {
         const theme: Theme = s.theme === 'light' ? 'light' : 'dark';
         const w = presetDataFrom({ name: 'w', ...s.working[theme] }, 'w');
+        const presets = ((s.presets ?? []) as any[]).map((p) => ({
+          id: typeof p.id === 'string' ? p.id : newId(),
+          ...presetDataFrom({ name: p.name, themes: p.themes }, 'Untitled'),
+        }));
+        const activeId = normalizeActiveId(s.activeId, presets);
         return {
           version: 4,
-          presets: ((s.presets ?? []) as any[]).map((p) => ({
-            id: typeof p.id === 'string' ? p.id : newId(),
-            ...presetDataFrom({ name: p.name, themes: p.themes }, 'Untitled'),
-          })),
-          activeId: typeof s.activeId === 'string' ? s.activeId : BUILTIN_ID,
+          presets,
+          activeId,
           theme,
           fps: normalizeFps(s.fps),
           styling: normalizeStyling(s),
@@ -299,12 +332,11 @@ function save(): void {
 }
 
 const allPresets = (): DemoPreset[] => [
-  { id: BUILTIN_ID, data: BUILTIN, readonly: true },
   ...libPresets,
   ...state.presets,
 ];
 const activePreset = (): DemoPreset =>
-  allPresets().find((p) => p.id === state.activeId) ?? { id: BUILTIN_ID, data: BUILTIN, readonly: true };
+  allPresets().find((p) => p.id === state.activeId) ?? defaultPreset;
 const working = (): WorkingLook => state.working;
 const styling = (): ComponentStyling => state.styling[state.theme];
 
@@ -714,7 +746,7 @@ function rebuildSelect(): void {
     }
     presetSelect.appendChild(g);
   };
-  group('Library', [{ id: BUILTIN_ID, data: BUILTIN, readonly: true }, ...libPresets]);
+  group('Library', libPresets);
   group('My presets', state.presets);
   presetSelect.value = state.activeId;
 }
@@ -790,7 +822,7 @@ function deletePreset(): void {
   if (idx < 0) return;
   if (!window.confirm(`Delete preset "${state.presets[idx].data.name}"?`)) return;
   state.presets.splice(idx, 1);
-  selectPreset(BUILTIN_ID);
+  selectPreset(DEFAULT_PRESET_ID);
 }
 function revert(): void {
   const p = activePreset();

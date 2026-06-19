@@ -12,6 +12,7 @@ import type {
   GlassInstance,
   GlassPreset,
   GlassSettings,
+  GlassSettingsPatch,
   Theme,
 } from './types';
 
@@ -31,8 +32,8 @@ export interface GlassFxProps {
   radius?: number | string;
   fps?: FpsMode;
   paused?: boolean;
-  settings?: Partial<GlassSettings>;
-  settingsByTheme?: Partial<Record<Theme, Partial<GlassSettings>>>;
+  settings?: GlassSettingsPatch;
+  settingsByTheme?: Partial<Record<Theme, GlassSettingsPatch>>;
   className?: string;
   style?: React.CSSProperties;
 }

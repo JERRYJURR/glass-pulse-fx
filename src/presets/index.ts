@@ -3,36 +3,50 @@
 // to the theme defaults. A preset never carries component styling (fill / border).
 //
 //   import { GlassFx } from 'glass-pulse-fx';
-//   import { sonar } from 'glass-pulse-fx/presets';
-//   <GlassFx preset={sonar}>…</GlassFx>
+//   import { bloom } from 'glass-pulse-fx/presets';
+//   <GlassFx preset={bloom}>…</GlassFx>
 //
-// Vanilla: createGlass(el, { preset: sonar })
+// Vanilla: createGlass(el, { preset: bloom })
 
 import type { GlassPreset } from '../types';
-import { auroraVeil } from './aurora-veil';
-import { sonar } from './sonar';
-import { beacon } from './beacon';
-import { radar } from './radar';
-import { neon } from './neon';
-import { ember } from './ember';
-import { solar } from './solar';
-import { prism } from './prism';
-import { bubblegum } from './bubblegum';
-import { midnight } from './midnight';
+import { bloom } from './bloom';
+import { halo } from './halo';
+import { rush } from './rush';
+import { comet } from './comet';
+import { cinder } from './cinder';
+import { plasma } from './plasma';
+import { kaleido } from './kaleido';
+import { nimbus } from './nimbus';
+import { emerald } from './emerald';
+import { glow } from './glow';
+import { tide } from './tide';
 
-export { auroraVeil, sonar, beacon, radar, neon, ember, solar, prism, bubblegum, midnight };
+export {
+  bloom,
+  halo,
+  rush,
+  comet,
+  cinder,
+  plasma,
+  kaleido,
+  nimbus,
+  emerald,
+  glow,
+  tide,
+};
 export type { GlassPreset };
 
 /** Every library preset, in display order — for galleries and the preset lab. */
 export const LIBRARY_PRESETS: GlassPreset[] = [
-  auroraVeil,
-  sonar,
-  beacon,
-  radar,
-  neon,
-  ember,
-  solar,
-  prism,
-  bubblegum,
-  midnight,
+  bloom,
+  halo,
+  rush,
+  comet,
+  cinder,
+  plasma,
+  kaleido,
+  nimbus,
+  emerald,
+  glow,
+  tide,
 ];

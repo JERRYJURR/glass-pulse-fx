@@ -42,6 +42,15 @@ export interface GlassSettings {
   outerBloom: BloomConfig;
 }
 
+/** Theme-adaptive settings override; nested bloom values may be patched independently. */
+export type GlassSettingsPatch = Omit<
+  Partial<GlassSettings>,
+  'innerBloom' | 'outerBloom'
+> & {
+  innerBloom?: Partial<BloomConfig>;
+  outerBloom?: Partial<BloomConfig>;
+};
+
 /** The lit rim border — component styling, like `fill`; not part of GlassSettings/presets. */
 export interface BorderConfig {
   width: number;
@@ -125,7 +134,7 @@ export interface CreateGlassOptions {
   fps?: FpsMode;
   paused?: boolean;
   /** merged onto the active theme's defaults */
-  settings?: Partial<GlassSettings>;
+  settings?: GlassSettingsPatch;
 }
 
 /**
@@ -143,11 +152,11 @@ export interface GlassPreset {
   version: 1;
   effect?: EffectId;
   effectParams?: Partial<EffectParams>;
-  settings?: Partial<GlassSettings>;
+  settings?: GlassSettingsPatch;
 }
 
 export interface GlassInstance {
-  update(patch: Partial<GlassSettings>): void;
+  update(patch: GlassSettingsPatch): void;
   setEffect(id: EffectId): void;
   setEffectParams(patch: Partial<EffectParams>): void;
   /** loads this theme's glass-settings, border, and effect-param defaults (your explicit overrides are re-applied on top) */

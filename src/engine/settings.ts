@@ -2,7 +2,7 @@
 // dark = the spec values; light = a placeholder to fill in from your own tuning
 // (the demo's preset lab + JSON export exists to produce these).
 
-import type { BorderConfig, GlassSettings, Theme } from '../types';
+import type { BorderConfig, GlassSettings, GlassSettingsPatch, Theme } from '../types';
 
 export const DEFAULT_SETTINGS: Record<Theme, GlassSettings> = {
   dark: {
@@ -54,7 +54,7 @@ export const DEFAULT_FILL: Record<Theme, string> = {
 /** Merge a partial patch onto a base, deep-merging the two bloom configs. */
 export function mergeSettings(
   base: GlassSettings,
-  patch?: Partial<GlassSettings>,
+  patch?: GlassSettingsPatch,
 ): GlassSettings {
   if (!patch) {
     return {

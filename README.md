@@ -73,15 +73,15 @@ glass.destroy();
 A `GlassPreset` is one shareable look — shader + params + glass material. It applies
 identically in dark and light mode; anything it does **not** pin (palette, frost, …)
 still adapts to the theme defaults. It deliberately carries **no component styling**
-(`fill` / `border` / `radius`): those belong to the component you wrap. Ten presets
-ship with the package — `auroraVeil`, `sonar`, `beacon`, `radar`, `neon`, `ember`,
-`solar`, `prism`, `bubblegum`, `midnight` (plus `LIBRARY_PRESETS`, the full list):
+(`fill` / `border` / `radius`): those belong to the component you wrap. Eleven presets
+ship with the package — `bloom`, `halo`, `rush`, `comet`, `cinder`, `plasma`,
+`kaleido`, `nimbus`, `emerald`, `glow`, `tide` (plus `LIBRARY_PRESETS`, the full list):
 
 ```tsx
 import { GlassFx } from 'glass-pulse-fx';
-import { sonar } from 'glass-pulse-fx/presets';
+import { bloom } from 'glass-pulse-fx/presets';
 
-<GlassFx preset={sonar}>
+<GlassFx preset={bloom}>
   <button>Ping</button>
 </GlassFx>
 ```
@@ -90,15 +90,17 @@ If your site has its own light/dark switch and you want a *different* look per m
 pass a different preset per mode — it's one ternary:
 
 ```tsx
-<GlassFx preset={isDark ? neon : midnight} theme={isDark ? 'dark' : 'light'}>
+import { rush, tide } from 'glass-pulse-fx/presets';
+
+<GlassFx preset={isDark ? tide : rush} theme={isDark ? 'dark' : 'light'}>
 ```
 
 Vanilla — `preset` is a `createGlass` option:
 
 ```ts
-import { sonar } from 'glass-pulse-fx/presets';
+import { comet } from 'glass-pulse-fx/presets';
 
-const glass = createGlass(el, { preset: sonar });
+const glass = createGlass(el, { preset: comet });
 ```
 
 Preset files live in [`src/presets/`](src/presets/), one export per file. The preset
@@ -120,8 +122,8 @@ defaults.
 | `kind` | `'pill' \| 'circle' \| 'rect' \| 'tag' \| 'card' \| 'icon'` | inferred | crop scale + default corner radius |
 | `fps` | `15 \| 30 \| 60` | `30` | animation paint rate |
 | `paused` | `boolean` | `false` | also auto-pauses on reduced-motion / offscreen / hidden tab |
-| `settings` | `Partial<GlassSettings>` | — | glass material, merged onto theme defaults |
-| `settingsByTheme` | `Partial<Record<Theme, Partial<GlassSettings>>>` | — | per-theme glass overrides (React) |
+| `settings` | `GlassSettingsPatch` | — | glass material, merged onto theme defaults |
+| `settingsByTheme` | `Partial<Record<Theme, GlassSettingsPatch>>` | — | per-theme glass overrides (React) |
 
 ### `GlassSettings` (the glass material — effect-independent)
 

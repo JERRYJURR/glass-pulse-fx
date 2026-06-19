@@ -17,6 +17,7 @@ import type {
   FpsMode,
   GlassInstance,
   GlassSettings,
+  GlassSettingsPatch,
   Kind,
   Theme,
 } from './types';
@@ -36,11 +37,11 @@ function inferKind(el: HTMLElement, radius?: number | string): Kind {
 
 // Combine two settings patches (b wins), deep-merging the bloom configs.
 function combinePatches(
-  a?: Partial<GlassSettings>,
-  b?: Partial<GlassSettings>,
-): Partial<GlassSettings> | undefined {
+  a?: GlassSettingsPatch,
+  b?: GlassSettingsPatch,
+): GlassSettingsPatch | undefined {
   if (!a || !b) return a ?? b;
-  const out: Partial<GlassSettings> = { ...a, ...b };
+  const out: GlassSettingsPatch = { ...a, ...b };
   if (a.innerBloom && b.innerBloom) out.innerBloom = { ...a.innerBloom, ...b.innerBloom };
   if (a.outerBloom && b.outerBloom) out.outerBloom = { ...a.outerBloom, ...b.outerBloom };
   return out;
