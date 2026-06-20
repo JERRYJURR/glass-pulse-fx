@@ -13,6 +13,7 @@ import type {
   GlassPreset,
   GlassSettings,
   GlassSettingsPatch,
+  Kind,
   Theme,
 } from './types';
 
@@ -30,6 +31,7 @@ export interface GlassFxProps {
   fill?: string;
   border?: Partial<BorderConfig>;
   radius?: number | string;
+  kind?: Kind;
   fps?: FpsMode;
   paused?: boolean;
   settings?: GlassSettingsPatch;
@@ -68,6 +70,7 @@ export function GlassFx({
   fill,
   border,
   radius,
+  kind,
   fps = 30,
   paused = false,
   settings,
@@ -100,6 +103,7 @@ export function GlassFx({
       fill,
       border,
       radius,
+      kind,
       fps,
       paused,
       settings: effSettings(resolvedTheme),

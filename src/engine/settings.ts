@@ -1,6 +1,5 @@
 // Settings presets: the slider configuration per theme.
-// dark = the spec values; light = a placeholder to fill in from your own tuning
-// (the demo's preset lab + JSON export exists to produce these).
+// These match the foundational material tokens from Paper.
 
 import type { BorderConfig, GlassSettings, GlassSettingsPatch, Theme } from '../types';
 
@@ -19,8 +18,6 @@ export const DEFAULT_SETTINGS: Record<Theme, GlassSettings> = {
     outerBloom: { size: 16, level: 0.45 },
   },
   light: {
-    // Tuned for vibrant light-theme palettes: a lighter frost veil + extra
-    // saturation so the colour reads through the glass on a light surface.
     bgBlur: 6,
     frost: 0.42,
     frostInset: 0,
@@ -38,7 +35,7 @@ export const DEFAULT_SETTINGS: Record<Theme, GlassSettings> = {
 /** Lit-rim border per theme — component styling (like DEFAULT_FILL), not part of presets. */
 export const DEFAULT_BORDER: Record<Theme, BorderConfig> = {
   dark: { width: 1, opacity: 0.3, color: '#808080' }, // hsl(0 0% 50%)
-  light: { width: 1, opacity: 0.3, color: '#6a6a72' },
+  light: { width: 1, opacity: 0.3, color: '#6A6A72' },
 };
 
 export function mergeBorder(base: BorderConfig, patch?: Partial<BorderConfig>): BorderConfig {
@@ -47,8 +44,8 @@ export function mergeBorder(base: BorderConfig, patch?: Partial<BorderConfig>): 
 
 /** Surface color per theme — a CSS background the glass derives from, separate from settings. */
 export const DEFAULT_FILL: Record<Theme, string> = {
-  dark: '#0d0d12',
-  light: '#eef0f3',
+  dark: '#0D0D12',
+  light: '#EEF0F3',
 };
 
 /** Merge a partial patch onto a base, deep-merging the two bloom configs. */

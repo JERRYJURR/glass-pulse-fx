@@ -154,15 +154,17 @@ void main(){
   gl_FragColor = vec4(c * u_bright, env);
 }`;
 
+const DEFAULT_PANE_COLORS = ['#FF2D9B', '#7A5CFF', '#19C3FF', '#15E6A4', '#FFD23F'];
+
 const dark: EffectParams = {
-  colors: ['#ff2d9b', '#7a5cff', '#19c3ff', '#15e6a4', '#ffd23f'],
+  colors: [...DEFAULT_PANE_COLORS],
   speed: 0.25, scale: 1.6, bright: 1.0,
   colorSpread: 2.0, colorSkew: 0, colorDrift: 0,
   velocity: 1, // Ease out
   rampIn: 0.25, rampOut: 0.5, interval: 0.4, angle: 0, motion: 0,
 };
 const light: EffectParams = {
-  colors: ['#ff84c4', '#a99bff', '#79dbff', '#7ef0c2', '#ffe39b'],
+  colors: [...DEFAULT_PANE_COLORS],
   speed: 0.25, scale: 1.6, bright: 1.0,
   colorSpread: 2.0, colorSkew: 0, colorDrift: 0,
   velocity: 1, // Ease out
