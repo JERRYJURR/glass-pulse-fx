@@ -2237,6 +2237,7 @@ input[type="range"].track {
   .mobile-copy {
     flex: 0 0 auto;
     display: flex;
+    align-items: center;
     gap: 8px;
     /* 8px after the last card so the loop seam keeps the rhythm (copyWidth includes it) */
     padding-right: 8px;
@@ -2244,11 +2245,13 @@ input[type="range"].track {
 
   .mobile-preview-card {
     width: 330px;
-    height: 381px;
     flex: 0 0 330px;
     display: flex;
     align-items: center;
     justify-content: center;
+    /* hug each mock; the vertical padding is room for the ~39px bloom that spills past
+       the card edge (Paper's flat mocks didn't need this) */
+    padding: 44px 0;
     border: 0;
     border-radius: 8px;
     background: var(--tile);
@@ -2266,7 +2269,6 @@ input[type="range"].track {
 
   .mobile-preview-card .mock-login {
     width: 282px;
-    height: 333px;
   }
 
   /* mobile pricing: only the Pro card (hide Starter), sized to the carousel */
@@ -2284,6 +2286,22 @@ input[type="range"].track {
 
   .mobile-preview-card .mock-generating {
     width: 282px;
+  }
+
+  /* unlock: on mobile the Upgrade button stacks below the copy (indented past the
+     icon) instead of sitting to the right, and the card hugs that taller content */
+  .mobile-preview-card .mock-unlock {
+    height: auto;
+  }
+
+  .mobile-preview-card .mock-unlock .mock-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .mobile-preview-card .mock-unlock button {
+    margin-left: 28px;
   }
 
   .gen-full {

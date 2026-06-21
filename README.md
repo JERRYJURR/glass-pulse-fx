@@ -2,31 +2,22 @@
 
 > Frosted-glass UI surfaces lit by animated, original WebGL shaders.
 
-Wrap any element (button, chip, card) and `glass-pulse-fx` renders, behind it, a
-frosted-glass material whose edges catch animated light: a shared shader layer, a
-`backdrop-filter` frost, an opaque blurred core, a thin lit rim, and two bloom layers
-that spill glow past the silhouette.
+Wrap any element — button, chip, card — and `glass-pulse-fx` paints a frosted-glass
+material **on top of it**: a shared animated shader, a `backdrop-filter` frost, an opaque
+blurred core, an optional lit rim, and two bloom layers that spill glow past the
+silhouette. It never replaces your element — it reads your element's own background and
+frosts *that*, so the glass sits on your surface.
 
-One shared WebGL context renders the effect for the whole page; every instance is a
-handful of cheap canvas copies plus CSS layers. The base shaders are original (no
-third-party attribution required) and the shader layer is pluggable — bring your own.
+One shared WebGL context renders the effect for the whole page; every instance is a handful
+of cheap canvas copies plus CSS layers. The base shader is original (no third-party
+attribution required) and the shader layer is pluggable.
 
-## Shaders
+## Requirements
 
-One built-in base shader (the layer is pluggable — bring your own):
-
-- **Panes** — discrete colored bands moving along a 1D coordinate: each fades in, holds,
-  fades out (via alpha, so the glass shows through), then a transparent interval before the
-  next. Knobs: `motion` (**Linear** sweep, **Center** — mirrored, bands emanate from the
-  middle, **Radial** — concentric rings ripple outward, **Orbit** — spokes sweep around
-  like a radar; `scale` rounds to the spoke count and the colour gradient snaps to whole
-  cycles around the ring so it wraps seamlessly),
-  `speed` (sign sets direction), a **velocity preset** (`velocity` — how band speed varies
-  across the axis: uniform, ease in/out, slow/fast middle), `scale` (band density), `interval`
-  (transparent spacing between bands), `rampIn` / `rampOut` (independent leading/trailing
-  fade), `angle`, and a **colour field decoupled from the bands** — 1–5 palette stops
-  sampled by `colorSpread` (along the motion), `colorSkew` (perpendicular → mesh) and
-  `colorDrift` (over time), so colour can vary *within* a band, not just band-to-band.
+- **React 18+** for the `<GlassFx>` component — or skip React entirely with the
+  framework-free `glass-pulse-fx/core` (`createGlass`).
+- **WebGL** for the animated light. Without it the effect degrades to a flat fill + border;
+  without `backdrop-filter`, to a flat translucent tint.
 
 ## Install
 
@@ -34,60 +25,71 @@ One built-in base shader (the layer is pluggable — bring your own):
 npm install glass-pulse-fx
 ```
 
-`react` / `react-dom` are optional peers — use `glass-pulse-fx/core` with no framework.
-
-## Quickstart (React)
+## Quick start (React)
 
 ```tsx
 import { GlassFx } from 'glass-pulse-fx';
+import { bloom } from 'glass-pulse-fx/presets';
 
 export default function Cta() {
   return (
-    <GlassFx effect="panes" theme="auto" radius={12}>
-      <button style={{ all: 'unset', padding: '0 26px', height: 52, cursor: 'pointer' }}>
-        Upgrade to Pro
-      </button>
+    <GlassFx preset={bloom} radius={12}>
+      <button className="your-button">Upgrade to Pro</button>
     </GlassFx>
   );
 }
 ```
 
-## Quickstart (vanilla)
+`<GlassFx>` wraps your component and overlays the glass. Style `.your-button` however you
+like — its background becomes the frosted surface. `preset` is one ready-made look;
+`radius` matches the glass corners to your component.
+
+## Quick start (vanilla)
 
 ```ts
 import { createGlass } from 'glass-pulse-fx/core';
+import { comet } from 'glass-pulse-fx/presets';
 
 const glass = createGlass(document.querySelector('#cta')!, {
-  kind: 'pill',
-  effect: 'panes',
+  preset: comet,
   theme: 'dark',
 });
 
-glass.setEffectParams({ motion: 1, speed: 0.4, colors: ['#ff2d9b', '#19c3ff', '#15e6a4'] });
+// later — tweak live, then clean up
 glass.update({ bgBlur: 10, frost: 0.5 });
 glass.destroy();
 ```
 
+## The overlay model
+
+`glass-pulse-fx` paints **on top of** the element you wrap — it never touches its
+background, border, radius, or shadow. The frost and core take their tint from your
+element's own background (flattened to an opaque color over whatever sits behind it), so the
+glass reads as *your* component's surface, frosted and lit — not a fill the library owns.
+
+In short: style your component normally; the library reads it. `fill` and `border` (below)
+are **optional overrides** — by default the surface tint comes from your element's
+background and your element's own CSS border is the border.
+
 ## Presets
 
 A `GlassPreset` is one shareable look — shader + params + glass material. It applies
-identically in dark and light mode; anything it does **not** pin (palette, frost, …)
-still adapts to the theme defaults. It deliberately carries **no component styling**
-(`fill` / `border` / `radius`): those belong to the component you wrap. Eleven presets
-ship with the package — `bloom`, `halo`, `rush`, `comet`, `cinder`, `plasma`,
-`kaleido`, `nimbus`, `emerald`, `glow`, `tide` (plus `LIBRARY_PRESETS`, the full list):
+identically in dark and light mode; anything it does **not** pin (palette, frost, …) still
+adapts to the theme defaults. It carries **no component styling** (`fill` / `border` /
+`radius`) — those belong to the component you wrap. Eleven presets ship — `bloom`, `halo`,
+`rush`, `comet`, `cinder`, `plasma`, `kaleido`, `nimbus`, `emerald`, `glow`, `tide` (plus
+`LIBRARY_PRESETS`, the full array):
 
 ```tsx
 import { GlassFx } from 'glass-pulse-fx';
 import { bloom } from 'glass-pulse-fx/presets';
 
 <GlassFx preset={bloom}>
-  <button>Ping</button>
+  <button className="your-button">Ping</button>
 </GlassFx>
 ```
 
-If your site has its own light/dark switch and you want a *different* look per mode,
-pass a different preset per mode — it's one ternary:
+Want a *different* look per mode? One ternary:
 
 ```tsx
 import { rush, tide } from 'glass-pulse-fx/presets';
@@ -99,14 +101,27 @@ Vanilla — `preset` is a `createGlass` option:
 
 ```ts
 import { comet } from 'glass-pulse-fx/presets';
-
 const glass = createGlass(el, { preset: comet });
 ```
 
-Preset files live in [`src/presets/`](src/presets/), one export per file. The preset
-lab's **Export** button generates a ready-to-commit preset file — or React / vanilla
-usage code — from whatever you tuned, containing only the values that differ from the
-defaults.
+### Custom presets
+
+A preset is just an object — the [demo playground](#demo--playground) serializes whatever
+you tune into a ready-to-paste literal (it updates live as you drag the controls; copying it
+**freezes that look** into your code — it's a snapshot, not a live link):
+
+```ts
+import type { GlassPreset } from 'glass-pulse-fx';
+
+const mine: GlassPreset = {
+  name: 'Mine',
+  version: 1,
+  effectParams: { speed: 0.4, colors: ['#ff2d9b', '#19c3ff', '#15e6a4'] },
+  settings: { bgBlur: 10, frost: 0.5 },
+};
+
+<GlassFx preset={mine}>…</GlassFx>
+```
 
 ## Props (React) / options (vanilla)
 
@@ -115,13 +130,14 @@ defaults.
 | `preset` | `GlassPreset` | — | a shareable look; explicit props below win over it |
 | `effect` | `'panes'` | `panes` | base shader |
 | `effectParams` | `Partial<EffectParams>` | — | merged onto the preset's params + the effect's theme defaults |
-| `theme` | `'dark' \| 'light' \| 'auto'` | `auto` (React) | `auto` follows `prefers-color-scheme` |
-| `fill` | CSS color | per theme | surface color — component styling, never in presets |
-| `border` | `Partial<BorderConfig>` | per theme | the lit rim: `{ width, opacity, color }` — component styling |
-| `radius` | `number \| string` | inferred | border-radius override |
+| `theme` | `'dark' \| 'light' \| 'auto'` | `auto` (React) / `dark` (vanilla) | `auto` follows `prefers-color-scheme` |
+| `fill` | CSS color | your element's background | override the frosted surface tint |
+| `border` | `Partial<BorderConfig>` | off | optional lit rim `{ width, opacity, color }` — off by default, your element's own border shows |
+| `radius` | `number \| string` | inferred | sets the glass clip + your element's `border-radius` |
 | `kind` | `'pill' \| 'circle' \| 'rect' \| 'tag' \| 'card' \| 'icon'` | inferred | crop scale + default corner radius |
 | `fps` | `15 \| 30 \| 60` | `30` | animation paint rate |
 | `paused` | `boolean` | `false` | also auto-pauses on reduced-motion / offscreen / hidden tab |
+| `bloomClip` | `boolean` | `false` | clip the bloom to the rounded box instead of letting it spill |
 | `settings` | `GlassSettingsPatch` | — | glass material, merged onto theme defaults |
 | `settingsByTheme` | `Partial<Record<Theme, GlassSettingsPatch>>` | — | per-theme glass overrides (React) |
 
@@ -144,13 +160,31 @@ defaults.
 ## How it works
 
 Per instance, bottom → top: **outer bloom** · **inner bloom** · a shared rounded
-**surface mask** containing a **base fill**, the insettable **shader** crop, **frost** (`backdrop-filter:
-saturate() blur()` over a `fill@frost` tint), and **core** (an inset, layer-blurred
-opaque fill) · **border** · then your content. The wrapper is `position:relative;
-isolation:isolate` and is **not** `overflow:hidden` (the blooms must spill). All effect
-layers are `pointer-events:none`.
+**surface mask** containing the insettable **shader** crop, **frost** (`backdrop-filter:
+saturate() blur()` over a tint taken from your element's background), and **core** (an
+inset, layer-blurred opaque fill) · an optional **lit border** · then your content. The
+wrapper is `position:relative; isolation:isolate` and is **not** `overflow:hidden` (the
+blooms must spill, unless you set `bloomClip`). All effect layers are `pointer-events:none`,
+and your element's own background, border, radius, and shadow are left untouched.
 
-## Writing your own shader
+## Shaders
+
+One built-in base shader (the layer is pluggable — bring your own):
+
+- **Panes** — discrete colored bands moving along a 1D coordinate: each fades in, holds,
+  fades out (via alpha, so the glass shows through), then a transparent interval before the
+  next. Knobs: `motion` (**Linear** sweep, **Center** — mirrored, bands emanate from the
+  middle, **Radial** — concentric rings ripple outward, **Orbit** — spokes sweep around
+  like a radar; `scale` rounds to the spoke count and the colour gradient snaps to whole
+  cycles around the ring so it wraps seamlessly),
+  `speed` (sign sets direction), a **velocity preset** (`velocity` — how band speed varies
+  across the axis: uniform, ease in/out, slow/fast middle), `scale` (band density), `interval`
+  (transparent spacing between bands), `rampIn` / `rampOut` (independent leading/trailing
+  fade), `angle`, and a **colour field decoupled from the bands** — 1–5 palette stops
+  sampled by `colorSpread` (along the motion), `colorSkew` (perpendicular → mesh) and
+  `colorDrift` (over time), so colour can vary *within* a band, not just band-to-band.
+
+### Writing your own shader
 
 Effects are isolated to [`src/engine/effects/`](src/engine/effects/). To add one:
 
@@ -167,26 +201,23 @@ The renderer and compositor never reference uniform names — they only call
 
 - One WebGL context, one program per effect, one RAF loop (~30 fps), torn down on last
   unmount. Cost is one shader render per distinct (effect, params) group + N cheap copies.
-- Offscreen instances are skipped (`IntersectionObserver`); the loop pauses when the tab
-  is hidden and freezes on `prefers-reduced-motion: reduce`.
+- Offscreen instances are skipped (`IntersectionObserver`); the loop pauses when the tab is
+  hidden and freezes on `prefers-reduced-motion: reduce`.
 - `backdrop-filter` is the heaviest part — set `bgBlur: 0` to drop the frost blur.
 - No WebGL → flat `fill` + border. No `backdrop-filter` → flat translucent tint.
 
-## Demo / preset lab
+## Demo / playground
 
 ```bash
-npm run dev          # http://localhost:5173 — sidebar lab, save full-look presets
+npm run dev          # http://localhost:5173 — sidebar playground, save full-look presets
 npm run build:demo   # static site -> dist-demo/
 ```
 
-The lab docks all controls in a left sidebar (independently scrollable), shows six shape
-mockups, and keeps your presets in `localStorage` (library presets from
-[`src/presets/`](src/presets/) appear read-only — Duplicate to riff on one). A preset
-captures the shader, its params, and the glass material as one look — flipping the
-lab's theme shows how that same look reads on the other mode; component styling
-(fill / border) stays out, as session state. **Export** emits ready-to-paste
-React or vanilla code, or a preset file to commit. See
-[SEPARATING-THE-DEMO.md](SEPARATING-THE-DEMO.md) for deploying it standalone.
+The playground docks all controls in a left sidebar, shows live mockups, and keeps your
+presets in `localStorage` (library presets from [`src/presets/`](src/presets/) appear
+read-only — Duplicate to riff on one). The **Install** tab generates ready-to-paste React or
+vanilla code from whatever you've tuned. See [SEPARATING-THE-DEMO.md](SEPARATING-THE-DEMO.md)
+for deploying it standalone.
 
 ## License
 
