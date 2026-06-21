@@ -356,14 +356,28 @@ interface NumberFieldProps {
   format: (value: number) => string;
   onChange: (value: number) => void;
   fixed?: boolean;
+  /** field displays as a percentage (e.g. 0.5 -> "50%"), so typed input is read as a percent too */
+  percent?: boolean;
 }
 
-function NumberField({ value, min, max, format, onChange, fixed = false }: NumberFieldProps): React.JSX.Element {
+// Width of the drag-to-scrub zone on each side of the field. Clicking the middle behaves
+// like a normal text input; only the left/right edges start a scrub.
+const SCRUB_EDGE = 10;
+
+function nearEdge(el: HTMLInputElement, clientX: number): boolean {
+  const rect = el.getBoundingClientRect();
+  return clientX - rect.left <= SCRUB_EDGE || rect.right - clientX <= SCRUB_EDGE;
+}
+
+function NumberField({ value, min, max, format, onChange, fixed = false, percent = false }: NumberFieldProps): React.JSX.Element {
   const [draft, setDraft] = React.useState<string | null>(null);
   const drag = React.useRef({ x: 0, v: 0, active: false });
 
   function onPointerDown(event: React.PointerEvent<HTMLInputElement>): void {
     if (event.button !== 0) return;
+    // Scrub only from the borders; a click in the body is a plain text-input click.
+    if (!nearEdge(event.currentTarget, event.clientX)) return;
+    event.preventDefault();
     drag.current = { x: event.clientX, v: value, active: false };
     const snap = max - min >= 50 ? 1 : 0.01;
     const span = max - min;
@@ -393,11 +407,16 @@ function NumberField({ value, min, max, format, onChange, fixed = false }: Numbe
       inputMode="decimal"
       value={draft ?? format(value)}
       onPointerDown={onPointerDown}
+      onPointerMove={(event) => {
+        // hint the scrub affordance: ew-resize on the edges, text cursor in the body
+        if (drag.current.active) return;
+        event.currentTarget.style.cursor = nearEdge(event.currentTarget, event.clientX) ? 'ew-resize' : 'text';
+      }}
       onChange={(event) => {
         const raw = event.currentTarget.value;
         setDraft(raw);
-        const parsed = Number.parseFloat(raw.replace(/[^0-9.+-]/g, ''));
-        if (Number.isFinite(parsed)) onChange(clamp(parsed, min, max));
+        const num = Number.parseFloat(raw.replace(/[^0-9.+-]/g, ''));
+        if (Number.isFinite(num)) onChange(clamp(percent ? num / 100 : num, min, max));
       }}
       onBlur={() => setDraft(null)}
       onKeyDown={(event) => {
@@ -414,6 +433,7 @@ interface NumberSpec {
   max: number;
   format: (value: number) => string;
   onChange: (value: number) => void;
+  percent?: boolean;
 }
 
 function PairRow({ left, right }: { left: NumberSpec; right?: NumberSpec }): React.JSX.Element {
@@ -423,7 +443,7 @@ function PairRow({ left, right }: { left: NumberSpec; right?: NumberSpec }): Rea
         field ? (
           <label className="pair-cell" key={field.label}>
             <span className="ctl-label">{field.label}</span>
-            <NumberField value={field.value} min={field.min} max={field.max} format={field.format} onChange={field.onChange} />
+            <NumberField value={field.value} min={field.min} max={field.max} format={field.format} onChange={field.onChange} percent={field.percent} />
           </label>
         ) : (
           <span className="pair-cell" key={`empty-${index}`} aria-hidden="true" />
@@ -513,6 +533,41 @@ function SegRow({ label, value, options, onChange }: SegRowProps): React.JSX.Ele
   );
 }
 
+const HEX_RE = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
+
+function normalizeHex(raw: string): string | null {
+  let v = raw.trim().replace(/[^#0-9a-fA-F]/g, '');
+  if (v && !v.startsWith('#')) v = `#${v}`;
+  if (!HEX_RE.test(v)) return null;
+  const body = v.slice(1);
+  const full = body.length === 3 ? body.split('').map((c) => c + c).join('') : body;
+  return `#${full.toLowerCase()}`;
+}
+
+// Editable hex field: type or paste a value; applies live when valid, reverts on blur if not.
+function HexInput({ value, onChange }: { value: string; onChange: (value: string) => void }): React.JSX.Element {
+  const [draft, setDraft] = React.useState<string | null>(null);
+  return (
+    <input
+      className="palette-hex"
+      type="text"
+      spellCheck={false}
+      autoComplete="off"
+      value={draft ?? value}
+      onChange={(event) => {
+        const raw = event.currentTarget.value;
+        setDraft(raw);
+        const hex = normalizeHex(raw);
+        if (hex) onChange(hex);
+      }}
+      onBlur={() => setDraft(null)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') event.currentTarget.blur();
+      }}
+    />
+  );
+}
+
 interface PaletteControlProps {
   rows: PaletteRow[];
   onColor: (index: number, value: string) => void;
@@ -528,7 +583,7 @@ function PaletteControl({ rows, onColor, onToggle, onDelete, onAdd }: PaletteCon
       <div className="group-heading">
         <span className="palette-heading">
           <span>Colors</span>
-          <span className="palette-count">{enabledCount}/{rows.length}</span>
+          <span className="palette-count">{rows.length}/5</span>
         </span>
         <button type="button" className="tiny-button" disabled={rows.length >= 5} onClick={onAdd} aria-label="Add color">
           <Plus size={16} />
@@ -541,11 +596,13 @@ function PaletteControl({ rows, onColor, onToggle, onDelete, onAdd }: PaletteCon
           const canDelete = rows.length > 1 && (!row.on || enabledCount > 1);
           return (
             <div className={row.on ? 'palette-row' : 'palette-row is-off'} key={`${row.color}-${index}`}>
-              <label className="palette-value">
-                <span style={{ backgroundColor: row.color }} />
-                <span>{row.color}</span>
-                <input type="color" value={row.color} onChange={(event) => onColor(index, event.currentTarget.value)} />
-              </label>
+              <div className="palette-value">
+                <label className="palette-swatch" title="Pick color">
+                  <span style={{ backgroundColor: row.color }} />
+                  <input type="color" value={row.color} onChange={(event) => onColor(index, event.currentTarget.value)} />
+                </label>
+                <HexInput value={row.color} onChange={(value) => onColor(index, value)} />
+              </div>
               <button type="button" className="icon-button" title={row.on ? 'Hide color' : 'Show color'} disabled={!canDisable} onClick={() => onToggle(index)}>
                 {row.on ? <Eye size={14} /> : <EyeOff size={14} />}
               </button>
@@ -641,11 +698,11 @@ function Controls({ state, mutate }: ControlsProps): React.JSX.Element {
         <SliderRow label="Speed" min={-2} max={2} step={0.01} value={paramNumber(look, 'speed')} format={f2} onChange={setParam('speed')} />
         <PairRow
           left={{ label: 'Density', value: paramNumber(look, 'scale'), min: 0.1, max: 4, format: f2, onChange: setParam('scale') }}
-          right={{ label: 'Gap', value: paramNumber(look, 'interval'), min: 0, max: 0.9, format: pct0, onChange: setParam('interval') }}
+          right={{ label: 'Gap', value: paramNumber(look, 'interval'), min: 0, max: 0.9, format: pct0, onChange: setParam('interval'), percent: true }}
         />
         <PairRow
-          left={{ label: 'Fade in', value: paramNumber(look, 'rampIn'), min: 0.01, max: 1, format: pct0, onChange: setParam('rampIn') }}
-          right={{ label: 'Fade out', value: paramNumber(look, 'rampOut'), min: 0.01, max: 1, format: pct0, onChange: setParam('rampOut') }}
+          left={{ label: 'Fade in', value: paramNumber(look, 'rampIn'), min: 0.01, max: 1, format: pct0, onChange: setParam('rampIn'), percent: true }}
+          right={{ label: 'Fade out', value: paramNumber(look, 'rampOut'), min: 0.01, max: 1, format: pct0, onChange: setParam('rampOut'), percent: true }}
         />
         <PairRow
           left={{ label: 'Angle', value: paramNumber(look, 'angle'), min: 0, max: 360, format: deg, onChange: setParam('angle') }}
@@ -690,7 +747,7 @@ function Controls({ state, mutate }: ControlsProps): React.JSX.Element {
         <SegRow
           label="Bloom"
           value={state.bloomClip}
-          options={[{ label: 'Spill', value: false }, { label: 'Clip', value: true }]}
+          options={[{ label: 'Overflow', value: false }, { label: 'Clip', value: true }]}
           onChange={(value) => mutate((draft) => { draft.bloomClip = Boolean(value); })}
         />
       </ControlGroup>
@@ -737,7 +794,7 @@ interface GlassPreviewProps {
   children: React.ReactNode;
 }
 
-function GlassPreview({ state, className, kind = 'card', radius = 18, children }: GlassPreviewProps): React.JSX.Element {
+function GlassPreview({ state, className, kind = 'card', radius = 16, children }: GlassPreviewProps): React.JSX.Element {
   const [ref, near] = useNearViewport<HTMLDivElement>();
   const content = <div className="mock-content">{children}</div>;
 
@@ -771,7 +828,7 @@ const previewItems: PreviewItem[] = [
     id: 'ask',
     slotClass: 'slot-ask',
     render: (state) => (
-      <GlassPreview state={state} className="mock-ask" radius={18}>
+      <GlassPreview state={state} className="mock-ask" radius={16}>
         <div className="prompt-card">
           <div className="prompt-placeholder">Ask anything...</div>
           <div className="prompt-actions">
@@ -789,7 +846,7 @@ const previewItems: PreviewItem[] = [
     id: 'login',
     slotClass: 'slot-login',
     render: (state) => (
-      <GlassPreview state={state} className="mock-login" radius={20}>
+      <GlassPreview state={state} className="mock-login" radius={16}>
         <div className="login-card">
           <div className="login-head">
             <div className="mock-title">Let's get started!</div>
@@ -814,7 +871,7 @@ const previewItems: PreviewItem[] = [
     id: 'command',
     slotClass: 'slot-command',
     render: (state) => (
-      <GlassPreview state={state} className="mock-command" radius={18}>
+      <GlassPreview state={state} className="mock-command" radius={16}>
         <div className="command-card">
           <div className="command-search">
             <Search size={20} />
@@ -906,10 +963,10 @@ const previewItems: PreviewItem[] = [
     id: 'upload',
     slotClass: 'slot-upload',
     render: (state) => (
-      <GlassPreview state={state} className="mock-upload" radius={18}>
+      <GlassPreview state={state} className="mock-upload" radius={16}>
         <div className="upload-head">
           <div className="upload-copy">
-            <Search size={20} />
+            <Upload size={20} />
             <div>
               <div className="mock-title">Uploading file 1 of 4</div>
               <div className="mock-sub">Design requirements.pdf</div>
@@ -927,7 +984,7 @@ const previewItems: PreviewItem[] = [
     id: 'unlock',
     slotClass: 'slot-unlock',
     render: (state) => (
-      <GlassPreview state={state} className="mock-unlock" radius={24}>
+      <GlassPreview state={state} className="mock-unlock" radius={16}>
         <div className="upgrade-copy">
           <Zap size={20} />
           <div>
@@ -951,7 +1008,7 @@ const previewItems: PreviewItem[] = [
                 key={dot}
                 className="dot"
                 animate={{ y: [0, -4, 0] }}
-                transition={{ duration: 0.7, repeat: Infinity, ease: 'easeInOut', delay: dot * 0.12 }}
+                transition={{ duration: 1.1, repeat: Infinity, ease: 'easeInOut', delay: dot * 0.16 }}
               />
             ))}
           </span>
@@ -965,7 +1022,7 @@ const previewItems: PreviewItem[] = [
     id: 'theme',
     slotClass: 'slot-theme',
     render: (state) => (
-      <GlassPreview state={state} className="mock-theme" radius={18}>
+      <GlassPreview state={state} className="mock-theme" radius={16}>
         <div className="theme-icon"><Sparkles size={24} /></div>
         <div>
           <div className="mock-title">Create a new theme</div>
@@ -978,7 +1035,7 @@ const previewItems: PreviewItem[] = [
     id: 'quickstart',
     slotClass: 'slot-quickstart',
     render: (state) => (
-      <GlassPreview state={state} className="mock-quickstart" radius={18}>
+      <GlassPreview state={state} className="mock-quickstart" radius={16}>
         <div className="quick-image" />
         <div className="quick-body">
           <div>

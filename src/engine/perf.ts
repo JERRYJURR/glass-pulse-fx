@@ -3,8 +3,11 @@
 
 import type { FpsMode, Kind } from '../types';
 
-/** Offscreen GL canvas edge in CSS px (squared, then DPR-scaled). */
-export const GL_SIZE = 96;
+/** Offscreen GL canvas edge in CSS px (squared, then DPR-scaled). This is the resolution
+ * of the *shared* shader field every instance crops from — one render for all instances,
+ * so it's cheap to keep high. Too low and large components (cards) visibly upscale: a
+ * card samples a slice of this field and stretches it across its whole surface. */
+export const GL_SIZE = 384;
 
 /** Device pixel ratio, capped at 2. Guarded for SSR (only read in the browser). */
 export const DPR =

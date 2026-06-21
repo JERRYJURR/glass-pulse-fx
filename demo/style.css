@@ -391,6 +391,9 @@ code {
 .tab {
   position: relative;
   flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -449,13 +452,35 @@ code {
   overflow-y: auto;
   overflow-x: hidden;
   padding-right: 8px;
+}
+
+/* Install list hides its scrollbar; the controls panel keeps a thin minimal one. */
+.left-panel-body .install-left,
+.control-sheet .controls {
   scrollbar-width: none;
 }
 
 .left-panel-body .install-left::-webkit-scrollbar,
-.left-panel-body .controls::-webkit-scrollbar,
 .control-sheet .controls::-webkit-scrollbar {
   display: none;
+}
+
+.left-panel-body .controls {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-soft) transparent;
+}
+
+.left-panel-body .controls::-webkit-scrollbar {
+  width: 6px;
+}
+
+.left-panel-body .controls::-webkit-scrollbar-thumb {
+  background: var(--line-soft);
+  border-radius: 999px;
+}
+
+.left-panel-body .controls::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .install-panel {
@@ -607,7 +632,8 @@ code {
   min-height: 16px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
+  gap: 12px;
   color: var(--muted);
   font-family: var(--font-sans);
   font-size: 14px;
@@ -625,6 +651,10 @@ code {
   cursor: pointer;
   text-decoration: underline 1px var(--chip-strong);
   text-underline-offset: 4px;
+}
+
+.preset-meta-row button:hover {
+  color: var(--text);
 }
 
 .preset-meta-row button:disabled {
@@ -744,31 +774,52 @@ code {
   align-items: center;
   gap: 8px;
   padding: 0 12px 0 4px;
-  color: var(--text);
-  font-family: var(--font-sans);
-  font-size: 13px;
-  line-height: 10px;
-  text-transform: uppercase;
+}
+
+.palette-value:focus-within {
+  background: var(--chip-strong);
+  outline: 1px solid var(--color-focus);
+  outline-offset: 1px;
+}
+
+/* The colored square is the only color-picker trigger; the hex is a normal text input. */
+.palette-swatch {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  display: block;
   cursor: pointer;
 }
 
-.palette-value > span:first-child {
+.palette-swatch > span {
+  display: block;
   width: 16px;
   height: 16px;
   border-radius: 4px;
-  flex: none;
 }
 
-.palette-value:hover {
-  background: var(--chip-strong);
-}
-
-.palette-value input[type="color"] {
+.palette-swatch input[type="color"] {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   opacity: 0;
+  cursor: pointer;
+}
+
+.palette-hex {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  text-transform: uppercase;
+  padding: 0;
+  outline: none;
+  cursor: text;
 }
 
 input[type="color"] {
@@ -854,7 +905,8 @@ input[type="range"]::-webkit-slider-thumb {
   appearance: none;
   width: 10px;
   height: 24px;
-  border: 1px solid var(--zinc-400);
+  border: 0;
+  border-top: 1px solid var(--zinc-400);
   border-radius: 6px;
   background: var(--zinc-600);
   box-shadow: none;
@@ -864,7 +916,8 @@ input[type="range"]::-webkit-slider-thumb {
 input[type="range"]::-moz-range-thumb {
   width: 10px;
   height: 24px;
-  border: 1px solid var(--zinc-400);
+  border: 0;
+  border-top: 1px solid var(--zinc-400);
   border-radius: 6px;
   background: var(--zinc-600);
   box-shadow: none;
@@ -903,7 +956,8 @@ input[type="range"]::-moz-range-thumb {
 
 .num-box {
   height: 24px;
-  flex: 1;
+  flex: none;
+  width: 60px;
   min-width: 0;
   border: 0;
   border-bottom: 1px solid var(--line);
@@ -923,7 +977,8 @@ input[type="range"]::-moz-range-thumb {
 
 .num-box:focus {
   background: var(--chip-strong);
-  border-bottom-color: var(--text);
+  outline: 1px solid var(--color-focus);
+  outline-offset: 1px;
 }
 
 .pair-row {
@@ -935,6 +990,7 @@ input[type="range"]::-moz-range-thumb {
 .pair-cell {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 4px;
   flex: 1;
   min-width: 0;
@@ -949,7 +1005,10 @@ input[type="range"]::-moz-range-thumb {
   min-height: 24px;
 }
 
-.track {
+/* Needs to out-specify the generic `input[type="range"]` background above, or the fill
+   gradient never paints (it loses to type+attribute specificity). Dark values here;
+   light overridden below (Paper: dark fill #3F3F46 / track --chip → light #71717A / #E4E4E7). */
+input[type="range"].track {
   flex: 1;
   min-width: 0;
   background: linear-gradient(to right, var(--zinc-700) calc(var(--fill, 0) * 100%), var(--chip) 0);
@@ -1032,6 +1091,100 @@ input[type="range"]::-moz-range-thumb {
 .seg-label {
   position: relative;
   z-index: 1;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Light-mode control surfaces — exact values from the Paper "Components Light"
+   sheet. Dark stays as the base rules above; light flips to white surfaces with
+   bevel/bottom-shadow borders and the white slider handle.
+   ───────────────────────────────────────────────────────────────────────────── */
+:root[data-theme="light"] input[type="range"].track {
+  background: linear-gradient(to right, var(--zinc-500) calc(var(--fill, 0) * 100%), var(--zinc-200) 0);
+}
+
+:root[data-theme="light"] input[type="range"]::-webkit-slider-thumb {
+  background: #fff;
+  border: 1px solid var(--zinc-600);
+  border-bottom-width: 2px;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.2);
+}
+
+:root[data-theme="light"] input[type="range"]::-moz-range-thumb {
+  background: #fff;
+  border: 1px solid var(--zinc-600);
+  border-bottom-width: 2px;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.2);
+}
+
+/* number / hex / install fields: white with a uniform 1px border (input style) */
+:root[data-theme="light"] .num-box,
+:root[data-theme="light"] .palette-value,
+:root[data-theme="light"] .code-card {
+  border: 1px solid var(--zinc-200);
+}
+
+/* segmented: gray track, white raised chip with a bottom edge */
+:root[data-theme="light"] .seg {
+  background: var(--zinc-200);
+  border-bottom: 0;
+}
+
+:root[data-theme="light"] .seg-indicator {
+  background: #fff;
+  border-top: 0;
+  border-bottom: 1px solid var(--zinc-300);
+}
+
+/* selects: raised bevel — soft top highlight, heavier bottom */
+:root[data-theme="light"] .preset-select-field,
+:root[data-theme="light"] .dropdown select {
+  background: #fff;
+  border: 1px solid var(--zinc-200);
+  border-top-color: rgb(228 228 231 / 0.5);
+  border-bottom-width: 2px;
+}
+
+/* ─── Light-mode mock components (same Paper light mapping) ─── */
+
+/* dark drop-shadow on the now-dark hero text reads muddy */
+:root[data-theme="light"] .hero-copy {
+  text-shadow: none;
+}
+
+/* OAuth + Cancel: raised white bevel buttons */
+:root[data-theme="light"] .login-auth button,
+:root[data-theme="light"] .mock-generating button {
+  background: #fff;
+  color: var(--text);
+  border: 1px solid var(--zinc-200);
+  border-top-color: rgb(228 228 231 / 0.5);
+  border-bottom-width: 2px;
+}
+
+/* email: input style (uniform border, not a recessed bottom edge) */
+:root[data-theme="light"] .login-email input {
+  border: 1px solid var(--zinc-200);
+}
+
+/* primary CTA: heavier bottom edge per the design */
+:root[data-theme="light"] .login-submit {
+  border-bottom-color: var(--zinc-600);
+}
+
+/* recessed icon chips sit on a white card — fill with the ground, not white */
+:root[data-theme="light"] .command-icon,
+:root[data-theme="light"] .theme-icon {
+  background: var(--zinc-100);
+}
+
+/* progress track needs to read against the white card */
+:root[data-theme="light"] .progress-line {
+  background: var(--zinc-200);
+}
+
+/* feature checks were near-invisible at 0.33 opacity */
+:root[data-theme="light"] .pricing-features svg {
+  opacity: 0.66;
 }
 
 .segmented-row {
@@ -1177,6 +1330,8 @@ input[type="range"]::-moz-range-thumb {
   color: var(--muted);
   font-size: 14px;
   line-height: 18px;
+  /* avoid a lone last word on its own line */
+  text-wrap: pretty;
 }
 
 .mock-title + .mock-sub {
@@ -1653,8 +1808,8 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .generating-spinner .dot {
-  width: 5px;
-  height: 5px;
+  width: 4px;
+  height: 4px;
   border-radius: 999px;
   background: var(--muted);
 }
@@ -1737,13 +1892,18 @@ input[type="range"]::-moz-range-thumb {
   background-position: center;
   background-size: cover;
   filter: contrast(66%) grayscale(100%);
+  mix-blend-mode: multiply;
+}
+
+:root[data-theme="light"] .quick-image {
+  filter: contrast(66%) grayscale(100%) invert(1);
 }
 
 .quick-body {
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  padding: 16px;
+  gap: 16px;
+  padding: 8px;
 }
 
 .progressive-blur {
