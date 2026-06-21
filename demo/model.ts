@@ -52,6 +52,7 @@ export interface DemoState {
   activeId: string;
   theme: Theme;
   fps: FpsMode;
+  bloomClip: boolean;
   styling: Record<Theme, ComponentStyling>;
   working: WorkingLook;
 }
@@ -232,6 +233,7 @@ export function freshState(): DemoState {
     activeId: DEFAULT_PRESET_ID,
     theme: 'dark',
     fps: 30,
+    bloomClip: false,
     styling: freshStyling(),
     working: lookFromPreset(defaultPreset.data, 'dark'),
   };
@@ -304,6 +306,7 @@ export function loadState(): DemoState {
         activeId,
         theme,
         fps: normalizeFps(root.fps),
+        bloomClip: typeof root.bloomClip === 'boolean' ? root.bloomClip : false,
         styling: normalizeStyling(root),
         working: root.activeId === 'builtin-default'
           ? lookFromPreset(defaultPreset.data, baseTheme)
@@ -326,6 +329,7 @@ export function loadState(): DemoState {
         activeId,
         theme,
         fps: normalizeFps(root.fps),
+        bloomClip: typeof root.bloomClip === 'boolean' ? root.bloomClip : false,
         styling: normalizeStyling(root),
         working: lookFromPreset(workingPreset.data, theme, workingPreset.palette),
       };

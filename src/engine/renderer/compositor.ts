@@ -46,6 +46,7 @@ export interface Compositor {
   applyStyle(settings: GlassSettings, fill: string, borderCfg: BorderConfig): void;
   /** isotropic = crop an aspect-true window (circles/angles render screen-true) */
   setSampling(isotropic: boolean): void;
+  setBloomClip(clip: boolean): void;
   paint(glCanvas: HTMLCanvasElement): void;
   destroy(): void;
 }
@@ -53,6 +54,7 @@ export interface Compositor {
 export interface CompositorOptions {
   radius?: number | string;
   degraded?: boolean;
+  bloomClip?: boolean;
 }
 
 function mk<K extends keyof typeof CLASS>(
@@ -119,6 +121,7 @@ export function createCompositor(
   opts: CompositorOptions = {},
 ): Compositor {
   const degraded = !!opts.degraded;
+  let bloomClip = !!opts.bloomClip;
   const shaderScale = SHADER_SCALE[kind];
 
   // wrapper baseline: contained backdrop-filter, positioned, blooms may overflow
@@ -260,6 +263,14 @@ export function createCompositor(
     ctx.roundRect(rect.x, rect.y, rect.width, rect.height, rect.radius);
   }
 
+  // When clipping is on, restrict the bloom canvas to the component's rounded box
+  // (the canvas sits `spread` px outside every edge, so inset by that much).
+  function bloomClipPath(sp: number): string {
+    return bloomClip
+      ? `inset(${sp - layerY}px ${sp + layerX}px ${sp + layerY}px ${sp - layerX}px round ${cornerRadius}px)`
+      : 'none';
+  }
+
   function layoutBloom(b: Bloom, cfg: BloomConfig): void {
     const { size, level } = cfg;
     b.enabled = bloomEnabled(size, level);
@@ -295,11 +306,13 @@ export function createCompositor(
     b.spread = spread;
     b.scale = scale;
     b.blur = size;
+    b.el.style.clipPath = bloomClipPath(spread);
   }
 
   function applyGlassStyle(): void {
     if (!settings) return;
-    base.style.background = fill;
+    // No opaque `base` fill — the component's own background shows through as the
+    // backdrop. We only tint the frost/core with the (composite) fill, painted on top.
     frost.style.background = withAlpha(fill, settings.frost);
     // insetting the frost exposes a raw (un-veiled, un-blurred) shader rim at the edge.
     const fi = frostInset();
@@ -387,17 +400,27 @@ export function createCompositor(
 
   function measure(): void {
     const r = el.getBoundingClientRect();
+    // The layers are absolutely positioned, so their origin is the host's *padding* box,
+    // but getBoundingClientRect measures the *border* box. Offset by the host's border so
+    // the glass aligns to the full component (otherwise a top/left border shifts it).
+    const mcs = getComputedStyle(el);
+    const borderL = parseFloat(mcs.borderLeftWidth) || 0;
+    const borderT = parseFloat(mcs.borderTopWidth) || 0;
     const snappedLeft = Math.round(r.left * DPR) / DPR;
     const snappedTop = Math.round(r.top * DPR) / DPR;
     const snappedRight = Math.round(r.right * DPR) / DPR;
     const snappedBottom = Math.round(r.bottom * DPR) / DPR;
-    layerX = snappedLeft - r.left;
-    layerY = snappedTop - r.top;
+    layerX = snappedLeft - r.left - borderL;
+    layerY = snappedTop - r.top - borderT;
     exactW = Math.max(1, snappedRight - snappedLeft);
     exactH = Math.max(1, snappedBottom - snappedTop);
     cssW = exactW;
     cssH = exactH;
     cornerRadius = resolveRadius();
+    // When a radius is given as a prop, round the component itself to match the glass
+    // clip so its own background/border follow the same corners. (If the component sets
+    // its radius in CSS instead, we leave it untouched.)
+    if (opts.radius != null) el.style.borderRadius = cornerRadius + 'px';
 
     assign(surfaceClip, {
       inset: 'auto',
@@ -609,6 +632,11 @@ export function createCompositor(
     },
     setSampling(v) {
       isotropic = v;
+    },
+    setBloomClip(v) {
+      bloomClip = v;
+      if (bOut?.enabled) bOut.el.style.clipPath = bloomClipPath(bOut.spread);
+      if (bIn?.enabled) bIn.el.style.clipPath = bloomClipPath(bIn.spread);
     },
     paint,
     destroy() {

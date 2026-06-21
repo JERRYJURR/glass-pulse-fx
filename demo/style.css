@@ -127,6 +127,9 @@
   --line-soft: var(--color-line-subtle);
   --chip: var(--color-control);
   --chip-strong: rgb(250 250 250 / 0.1);
+  /* The preview tile: a level *between* the page and the card. Dark = a lift above the
+     near-black page; light = a recess below white so the white card still pops on it. */
+  --tile: #151517;
   --shadow-lg: var(--elevation-2);
   --shadow-sm: var(--elevation-1);
   --nav-h: 64px;
@@ -162,6 +165,7 @@
   --line-soft: var(--color-line-subtle);
   --chip: var(--color-control);
   --chip-strong: var(--zinc-50);
+  --tile: #ECECEF;
   --shadow-lg: var(--elevation-2);
   --shadow-sm: var(--elevation-1);
 }
@@ -178,6 +182,7 @@ body,
 
 html {
   background: var(--page);
+  scrollbar-width: none;
 }
 
 body {
@@ -189,6 +194,7 @@ body {
   scrollbar-width: none;
 }
 
+html::-webkit-scrollbar,
 body::-webkit-scrollbar {
   display: none;
 }
@@ -1082,31 +1088,25 @@ input[type="range"]::-moz-range-thumb {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  /* 8px after the last slot so the loop seam (quickstart → ask) keeps the rhythm.
+     padding (not margin) so it's included in the copy height the loop scroll measures. */
+  padding-bottom: 8px;
 }
 
 .desktop-preview-slot {
   width: 736px;
-  height: var(--slot-h);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 64px 32px;
   border: 0;
   border-radius: 8px;
-  background: var(--chip);
+  /* The tile sits between the page and the card. It must NOT reuse --chip (opaque white
+     in light = same as the card) nor --page (= invisible against the page). --tile is its
+     own level so all three stay distinct in both themes. */
+  background: var(--tile);
   overflow: hidden;
 }
-
-.slot-ask { --slot-h: 246px; }
-.slot-login { --slot-h: 461px; }
-.slot-command { --slot-h: 414px; }
-.slot-segmented { --slot-h: 160px; }
-.slot-pricing { --slot-h: 504px; }
-.slot-upload { --slot-h: 213px; }
-.slot-unlock { --slot-h: 403px; }
-.slot-generating { --slot-h: 227px; }
-.slot-theme { --slot-h: 177px; }
-.slot-quickstart { --slot-h: 259px; }
 
 .mock-motion {
   display: flex;
@@ -1120,13 +1120,14 @@ input[type="range"]::-moz-range-thumb {
   align-items: center;
   justify-content: center;
   color: var(--text);
+  background: var(--chip);
+  border-top: 1px solid var(--line);
   isolation: isolate;
-  overflow: hidden;
 }
 
 .mock-glass--static {
   border: 1px solid var(--line);
-  background: var(--surface);
+  background: var(--chip);
   box-shadow: var(--shadow-sm);
 }
 
@@ -1464,8 +1465,18 @@ input[type="range"]::-moz-range-thumb {
 
 .seg-pill--glass {
   padding: 0;
-  overflow: hidden;
+  background: var(--chip-strong);
+  border-top: 1px solid var(--line);
   color: var(--text);
+}
+
+/* Light mode: a selected segment is a WHITE raised chip with a bottom edge — not a
+   gray-on-white fill (that reads as disabled) or a top highlight. */
+:root[data-theme="light"] .seg-pill.is-raised,
+:root[data-theme="light"] .seg-pill--glass {
+  background: #FFFFFF;
+  border-top: 0;
+  border-bottom: 1px solid #D4D4D8;
 }
 
 .seg-pill-label {
@@ -1494,10 +1505,20 @@ input[type="range"]::-moz-range-thumb {
   flex-direction: column;
 }
 
+/* Light mode: the dark "top highlight" card edge flips to a bottom-shadow border, and
+   the white surface gets a soft lift off the ground (in dark the glow does that job). */
+:root[data-theme="light"] .mock-glass,
+:root[data-theme="light"] .mock-glass--static,
+:root[data-theme="light"] .pricing-plan {
+  border-top: 0;
+  border-bottom: 2px solid var(--line);
+  box-shadow: 0 1px 2px rgb(24 24 27 / 0.05), 0 4px 12px rgb(24 24 27 / 0.04);
+}
+
+/* Same surface as the plain plan — GlassFx reads it (flattened) and adds the glow.
+   Host stays overflow:visible so the bloom can spill; content clips on .pricing-inner. */
 .pricing-plan--glass {
-  background: transparent;
-  border: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .pricing-inner {
@@ -1506,6 +1527,8 @@ input[type="range"]::-moz-range-thumb {
   display: flex;
   flex-direction: column;
   height: 100%;
+  border-radius: 16px;
+  overflow: hidden;
 }
 
 .pricing-top {

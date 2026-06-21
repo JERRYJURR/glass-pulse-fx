@@ -8,6 +8,7 @@ import { addRuntime, removeRuntime, markDirty, type Runtime } from './engine/ren
 import { createCompositor, type Compositor } from './engine/renderer/compositor';
 import { EFFECTS, mergeEffectParams } from './engine/effects';
 import { DEFAULT_SETTINGS, DEFAULT_FILL, DEFAULT_BORDER, mergeSettings, mergeBorder } from './engine/settings';
+import { parseColor, compositeOver, rgbToHex, type RGBA } from './engine/color';
 import { frameMsForFps } from './engine/perf';
 import type {
   BorderConfig,
@@ -33,6 +34,32 @@ function inferKind(el: HTMLElement, radius?: number | string): Kind {
   const br = getComputedStyle(el).borderRadius;
   if (br && br.includes('%') && parseFloat(br) >= 50) return 'circle';
   return 'rect';
+}
+
+// The opaque color seen *through* an element — its ancestor backgrounds flattened
+// (the eyedropper backdrop a translucent component surface sits on).
+function backdropOf(el: HTMLElement): RGBA {
+  const layers: RGBA[] = [];
+  for (let n = el.parentElement; n; n = n.parentElement) {
+    const c = parseColor(getComputedStyle(n).backgroundColor);
+    if (c.a > 0) layers.push(c);
+    if (c.a >= 1) break; // opaque ancestor — stop
+  }
+  let out: RGBA =
+    layers.length && layers[layers.length - 1].a >= 1 ? layers.pop()! : { r: 0, g: 0, b: 0, a: 1 };
+  for (let i = layers.length - 1; i >= 0; i--) out = compositeOver(layers[i], out);
+  return out;
+}
+
+// The component GlassPulse wraps *is* the surface: read its own background and flatten
+// any translucency against the backdrop, so the glass gets an opaque tint (and the
+// frost/core opacity settings don't double-count the component's alpha). null when the
+// host is transparent — caller falls back to the theme default.
+function readHostFill(el: HTMLElement): string | null {
+  const own = parseColor(getComputedStyle(el).backgroundColor);
+  if (own.a <= 0) return null;
+  if (own.a >= 1) return rgbToHex(own);
+  return rgbToHex(compositeOver(own, backdropOf(el)));
 }
 
 // Combine two settings patches (b wins), deep-merging the bloom configs.
@@ -65,16 +92,23 @@ export function createGlass(target: HTMLElement, opts: CreateGlassOptions = {}):
   rememberParams(opts.effectParams);
   let params: EffectParams = mergeEffectParams(EFFECTS[effect].defaults[theme], userParams);
 
+  // The glass is painted ON TOP of the component — we never touch its background,
+  // border, radius, or shadow. With no explicit fill we read the component's own
+  // background and flatten it to an opaque tint for the frost/core (so their opacity
+  // settings don't double-count the component's alpha); the component's surface stays
+  // as the backdrop underneath.
   const fillPinned = opts.fill != null;
-  let fill = opts.fill ?? DEFAULT_FILL[theme];
+  let fill = opts.fill ?? readHostFill(target) ?? DEFAULT_FILL[theme];
 
   // creation-time overrides (preset's beneath explicit), re-applied on theme switch
   const basePatch = combinePatches(preset?.settings, opts.settings);
   let settings: GlassSettings = mergeSettings(DEFAULT_SETTINGS[theme], basePatch);
 
-  // border overrides accumulate (like effect params) and re-base onto theme defaults
+  // The component keeps its own CSS border. The glass only adds a lit rim when one is
+  // explicitly requested via the `border` prop.
+  const noRim: BorderConfig = { width: 0, opacity: 0, color: 'transparent' };
   let borderPatch: Partial<BorderConfig> = { ...opts.border };
-  let border: BorderConfig = mergeBorder(DEFAULT_BORDER[theme], borderPatch);
+  let border: BorderConfig = opts.border ? mergeBorder(DEFAULT_BORDER[theme], borderPatch) : noRim;
 
   const kind: Kind = opts.kind ?? inferKind(target, opts.radius);
 
@@ -86,7 +120,11 @@ export function createGlass(target: HTMLElement, opts: CreateGlassOptions = {}):
     degraded = true; // no WebGL -> flat fill + border fallback
   }
 
-  const comp: Compositor = createCompositor(target, kind, { radius: opts.radius, degraded });
+  const comp: Compositor = createCompositor(target, kind, {
+    radius: opts.radius,
+    degraded,
+    bloomClip: opts.bloomClip,
+  });
   comp.setSampling(EFFECTS[effect].sampling?.(params) === 'isotropic');
   comp.applyStyle(settings, fill, border);
 
@@ -167,8 +205,8 @@ export function createGlass(target: HTMLElement, opts: CreateGlassOptions = {}):
     setTheme(t) {
       theme = t;
       settings = mergeSettings(DEFAULT_SETTINGS[theme], basePatch);
-      if (!fillPinned) fill = DEFAULT_FILL[theme];
-      border = mergeBorder(DEFAULT_BORDER[theme], borderPatch);
+      if (!fillPinned) fill = readHostFill(target) ?? DEFAULT_FILL[theme];
+      border = opts.border ? mergeBorder(DEFAULT_BORDER[theme], borderPatch) : noRim;
       params = mergeEffectParams(EFFECTS[effect].defaults[theme], userParams);
       syncEffect();
       restyle();
@@ -184,6 +222,9 @@ export function createGlass(target: HTMLElement, opts: CreateGlassOptions = {}):
     },
     setFps(fps) {
       setRuntimeFps(fps);
+    },
+    setBloomClip(clip) {
+      comp.setBloomClip(clip);
     },
     setPaused(paused) {
       rt.paused = paused;

@@ -687,6 +687,12 @@ function Controls({ state, mutate }: ControlsProps): React.JSX.Element {
           options={fpsModes.map((fps) => ({ label: String(fps), value: fps }))}
           onChange={(value) => mutate((draft) => { draft.fps = normalizeFps(Number(value)); })}
         />
+        <SegRow
+          label="Bloom"
+          value={state.bloomClip}
+          options={[{ label: 'Spill', value: false }, { label: 'Clip', value: true }]}
+          onChange={(value) => mutate((draft) => { draft.bloomClip = Boolean(value); })}
+        />
       </ControlGroup>
     </div>
   );
@@ -712,15 +718,14 @@ function useNearViewport<T extends HTMLElement>(rootMargin = '700px'): [React.Re
 }
 
 function glassProps(state: DemoState) {
-  const styling = state.styling[state.theme];
   return {
     theme: state.theme,
     effect: state.working.effect,
     effectParams: state.working.effectParams,
     settings: state.working.settings,
-    fill: styling.fill,
-    border: styling.border,
+    // no fill/border — GlassFx inherits each card's own CSS (translucency flattened)
     fps: state.fps,
+    bloomClip: state.bloomClip,
   };
 }
 

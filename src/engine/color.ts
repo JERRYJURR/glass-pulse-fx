@@ -28,3 +28,42 @@ export function hexToRgba(h: string, a: number): string {
 export function withAlpha(color: string, a: number): string {
   return isHexColor(color) ? hexToRgba(color, a) : color;
 }
+
+export interface RGBA {
+  /** r,g,b in 0..255, a in 0..1 */
+  r: number;
+  g: number;
+  b: number;
+  a: number;
+}
+
+/** Parse a CSS color (hex or rgb()/rgba(), incl. computed `rgb(...)`) to RGBA. */
+export function parseColor(c: string): RGBA {
+  const s = c.trim();
+  if (isHexColor(s)) {
+    const n = expand(s);
+    return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255, a: 1 };
+  }
+  const m = s.match(/^rgba?\(([^)]+)\)$/i);
+  if (!m) return { r: 0, g: 0, b: 0, a: 0 };
+  const parts = m[1].split(/[,/]/).map((p) => parseFloat(p.trim()));
+  return { r: parts[0] || 0, g: parts[1] || 0, b: parts[2] || 0, a: parts[3] == null ? 1 : parts[3] };
+}
+
+/** Porter-Duff source-over: paint `fg` onto `bg` (the eyedropper composite). */
+export function compositeOver(fg: RGBA, bg: RGBA): RGBA {
+  const a = fg.a + bg.a * (1 - fg.a);
+  if (a === 0) return { r: 0, g: 0, b: 0, a: 0 };
+  return {
+    r: (fg.r * fg.a + bg.r * bg.a * (1 - fg.a)) / a,
+    g: (fg.g * fg.a + bg.g * bg.a * (1 - fg.a)) / a,
+    b: (fg.b * fg.a + bg.b * bg.a * (1 - fg.a)) / a,
+    a,
+  };
+}
+
+/** RGBA -> '#rrggbb' (alpha dropped — caller should composite to opaque first). */
+export function rgbToHex(c: RGBA): string {
+  const h = (n: number) => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, '0');
+  return `#${h(c.r)}${h(c.g)}${h(c.b)}`;
+}

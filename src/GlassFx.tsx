@@ -34,6 +34,8 @@ export interface GlassFxProps {
   kind?: Kind;
   fps?: FpsMode;
   paused?: boolean;
+  /** clip the bloom to the component's rounded box (no outward spill). default false */
+  bloomClip?: boolean;
   settings?: GlassSettingsPatch;
   settingsByTheme?: Partial<Record<Theme, GlassSettingsPatch>>;
   className?: string;
@@ -73,6 +75,7 @@ export function GlassFx({
   kind,
   fps = 30,
   paused = false,
+  bloomClip = false,
   settings,
   settingsByTheme,
   className,
@@ -106,6 +109,7 @@ export function GlassFx({
       kind,
       fps,
       paused,
+      bloomClip,
       settings: effSettings(resolvedTheme),
     });
     inst.current = g;
@@ -149,6 +153,10 @@ export function GlassFx({
   React.useEffect(() => {
     inst.current?.setFps(fps);
   }, [fps]);
+
+  React.useEffect(() => {
+    inst.current?.setBloomClip(bloomClip);
+  }, [bloomClip]);
 
   React.useEffect(() => {
     inst.current?.update(effSettings(resolvedTheme));

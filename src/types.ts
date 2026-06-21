@@ -135,6 +135,9 @@ export interface CreateGlassOptions {
   paused?: boolean;
   /** merged onto the active theme's defaults */
   settings?: GlassSettingsPatch;
+  /** clip the inner/outer bloom to the component's rounded box (no outward spill).
+   *  default false — blooms overflow the element. */
+  bloomClip?: boolean;
 }
 
 /**
@@ -165,5 +168,7 @@ export interface GlassInstance {
   setBorder(patch: Partial<BorderConfig>): void;
   setFps(fps: FpsMode): void;
   setPaused(paused: boolean): void;
+  /** toggle clipping the bloom to the component's rounded box */
+  setBloomClip(clip: boolean): void;
   destroy(): void;
 }
