@@ -794,18 +794,19 @@ interface GlassPreviewProps {
   children: React.ReactNode;
 }
 
+// Shared hover/tap interaction so every mock lifts the same way (cards, pricing, seg pills).
+const cardHover = {
+  whileHover: { y: -4, scale: 1.012 },
+  whileTap: { scale: 0.992 },
+  transition: { type: 'spring' as const, stiffness: 360, damping: 30 },
+};
+
 function GlassPreview({ state, className, kind = 'card', radius = 16, children }: GlassPreviewProps): React.JSX.Element {
   const [ref, near] = useNearViewport<HTMLDivElement>();
   const content = <div className="mock-content">{children}</div>;
 
   return (
-    <motion.div
-      ref={ref}
-      className="mock-motion"
-      whileHover={{ y: -4, scale: 1.012 }}
-      whileTap={{ scale: 0.992 }}
-      transition={{ type: 'spring', stiffness: 360, damping: 30 }}
-    >
+    <motion.div ref={ref} className="mock-motion" {...cardHover}>
       {near ? (
         <GlassFx className={`mock-glass ${className}`} kind={kind} radius={radius} {...glassProps(state)}>
           {content}
@@ -896,11 +897,13 @@ const previewItems: PreviewItem[] = [
     slotClass: 'slot-segmented',
     render: (state) => (
       <div className="mock-segmented-free">
-        <button className="seg-pill" type="button">About us</button>
-        <button className="seg-pill is-raised" type="button">Log in</button>
-        <GlassFx className="seg-pill seg-pill--glass" kind="card" radius={8} {...glassProps(state)}>
-          <span className="seg-pill-label">Sign up</span>
-        </GlassFx>
+        <motion.button className="seg-pill" type="button" {...cardHover}>About us</motion.button>
+        <motion.button className="seg-pill is-raised" type="button" {...cardHover}>Log in</motion.button>
+        <motion.div className="seg-pill-motion" {...cardHover}>
+          <GlassFx className="seg-pill seg-pill--glass" kind="card" radius={8} {...glassProps(state)}>
+            <span className="seg-pill-label">Sign up</span>
+          </GlassFx>
+        </motion.div>
       </div>
     ),
   },
@@ -947,12 +950,16 @@ const previewItems: PreviewItem[] = [
                 </div>
               </>
             );
-            return plan.glass ? (
-              <GlassFx key={plan.name} className="pricing-plan pricing-plan--glass" kind="card" radius={16} {...glassProps(state)}>
-                <div className="pricing-inner">{inner}</div>
-              </GlassFx>
-            ) : (
-              <div className="pricing-plan" key={plan.name}>{inner}</div>
+            return (
+              <motion.div className="pricing-plan-motion" key={plan.name} {...cardHover}>
+                {plan.glass ? (
+                  <GlassFx className="pricing-plan pricing-plan--glass" kind="card" radius={16} {...glassProps(state)}>
+                    <div className="pricing-inner">{inner}</div>
+                  </GlassFx>
+                ) : (
+                  <div className="pricing-plan">{inner}</div>
+                )}
+              </motion.div>
             );
           })}
         </div>
@@ -1012,7 +1019,7 @@ const previewItems: PreviewItem[] = [
               />
             ))}
           </span>
-          <span>Generating 1 of 4 pages...</span>
+          <span><span className="gen-full">Generating 1 of 4 pages...</span><span className="gen-short">Generating pages...</span></span>
         </div>
         <button type="button">Cancel</button>
       </GlassPreview>
@@ -1036,7 +1043,7 @@ const previewItems: PreviewItem[] = [
     slotClass: 'slot-quickstart',
     render: (state) => (
       <GlassPreview state={state} className="mock-quickstart" radius={16}>
-        <div className="quick-image" />
+        <div className="quick-image"><div className="quick-image-media" /></div>
         <div className="quick-body">
           <div>
             <div className="mock-title">Quick start</div>
@@ -1219,19 +1226,6 @@ function Footer(): React.JSX.Element {
   );
 }
 
-function MobileStatusBar(): React.JSX.Element {
-  return (
-    <div className="mobile-status" aria-hidden="true">
-      <span>9:41</span>
-      <div className="status-icons">
-        <span className="status-signal"><i /><i /><i /></span>
-        <span className="status-wifi" />
-        <span className="status-battery" />
-      </div>
-    </div>
-  );
-}
-
 interface DesktopShellProps extends ControlsProps {
   tab: TabId;
   onTab: (tab: TabId) => void;
@@ -1341,14 +1335,13 @@ interface MobileShellProps extends ControlsProps {
 function MobileShell({ state, dirty, onSelectPreset, onResetPreset, onOpenControls, onTheme }: MobileShellProps): React.JSX.Element {
   return (
     <div className="mobile-shell">
-      <MobileStatusBar />
       <header className="mobile-nav">
         <Wordmark />
         <div className="mobile-actions">
+          <a className="icon-button" title="GitHub" href="https://github.com/JERRYJURR/glass-pulse-fx"><GithubLogo size={16} /></a>
           <button className="icon-button" type="button" title={state.theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} onClick={onTheme}>
             {state.theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
           </button>
-          <a className="icon-button" title="GitHub" href="https://github.com/JERRYJURR/glass-pulse-fx"><GithubLogo size={16} /></a>
         </div>
       </header>
       <main className="mobile-content">

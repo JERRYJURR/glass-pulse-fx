@@ -273,9 +273,9 @@ code {
 .tiny-button,
 .customize-button {
   border: 0;
-  border-bottom: 1px solid var(--line);
+  border-top: 1px solid var(--line);
   background: var(--chip);
-  color: var(--text);
+  color: var(--muted);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -451,7 +451,8 @@ code {
   max-height: 100%;
   overflow-y: auto;
   overflow-x: hidden;
-  padding-right: 8px;
+  /* room so focus outlines / edge content aren't clipped by overflow-x: hidden */
+  padding: 2px 8px 2px 3px;
 }
 
 /* Install list hides its scrollbar; the controls panel keeps a thin minimal one. */
@@ -532,6 +533,7 @@ code {
 .code-card pre {
   flex: 1;
   min-width: 0;
+  align-self: stretch;
   margin: 0;
   padding-top: 4px;
   line-height: 1.25;
@@ -956,8 +958,7 @@ input[type="range"]::-moz-range-thumb {
 
 .num-box {
   height: 24px;
-  flex: none;
-  width: 60px;
+  flex: 1;
   min-width: 0;
   border: 0;
   border-bottom: 1px solid var(--line);
@@ -990,7 +991,6 @@ input[type="range"]::-moz-range-thumb {
 .pair-cell {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 4px;
   flex: 1;
   min-width: 0;
@@ -1135,9 +1135,10 @@ input[type="range"].track {
   border-bottom: 1px solid var(--zinc-300);
 }
 
-/* selects: raised bevel — soft top highlight, heavier bottom */
+/* selects + raised buttons: bevel — soft top highlight, heavier bottom */
 :root[data-theme="light"] .preset-select-field,
-:root[data-theme="light"] .dropdown select {
+:root[data-theme="light"] .dropdown select,
+:root[data-theme="light"] .customize-button {
   background: #fff;
   border: 1px solid var(--zinc-200);
   border-top-color: rgb(228 228 231 / 0.5);
@@ -1598,6 +1599,12 @@ input[type="range"].track {
   gap: 8px;
 }
 
+/* hover-lift wrappers hug their card/pill so the flex layout is unchanged */
+.pricing-plan-motion,
+.seg-pill-motion {
+  display: flex;
+}
+
 .seg-pill {
   height: 32px;
   padding: 0 12px;
@@ -1800,6 +1807,11 @@ input[type="range"].track {
   font-size: 14px;
 }
 
+/* generating label: full on desktop, short on mobile (toggled in the mobile media query) */
+.gen-short {
+  display: none;
+}
+
 .generating-spinner {
   display: inline-flex;
   align-items: center;
@@ -1885,18 +1897,35 @@ input[type="range"].track {
   gap: 0;
 }
 
+/* Frame = the fill the image blends against (Paper: light #F4F4F5 / dark surface). It
+   isolates so the image's blend acts on THIS fill, not the transparent content layer. */
 .quick-image {
   height: 128px;
   border-radius: 12px;
-  background-image: url("https://app.paper.design/file-assets/01KTDT5X8R5YVAX2DKA3BEFSD8/01KVFGY1Q1SG4T9TVE0VC4BMB4.jpg");
-  background-position: center;
-  background-size: cover;
-  filter: contrast(66%) grayscale(100%);
-  mix-blend-mode: multiply;
+  overflow: hidden;
+  isolation: isolate;
+  background: #202022;
+  /* fades the whole image area (fill + blended image) so the frosted card shows through */
+  opacity: 0.85;
 }
 
 :root[data-theme="light"] .quick-image {
-  filter: contrast(66%) grayscale(100%) invert(1);
+  background: var(--zinc-100);
+}
+
+.quick-image-media {
+  width: 100%;
+  height: 100%;
+  background-image: url("https://app.paper.design/file-assets/01KTDT5X8R5YVAX2DKA3BEFSD8/01KVFGY1Q1SG4T9TVE0VC4BMB4.jpg");
+  background-position: center;
+  background-size: cover;
+  filter: contrast(0.9) grayscale(1);
+  mix-blend-mode: screen;
+}
+
+:root[data-theme="light"] .quick-image-media {
+  filter: invert(1) contrast(0.9) grayscale(1);
+  mix-blend-mode: multiply;
 }
 
 .quick-body {
@@ -2185,9 +2214,9 @@ input[type="range"].track {
 
   .customize-button {
     height: 32px;
-    padding: 0 10px;
+    padding: 0 8px;
     border-radius: 8px;
-    font-size: 12px;
+    font-size: 14px;
   }
 
   .mobile-carousel {
@@ -2209,6 +2238,8 @@ input[type="range"].track {
     flex: 0 0 auto;
     display: flex;
     gap: 8px;
+    /* 8px after the last card so the loop seam keeps the rhythm (copyWidth includes it) */
+    padding-right: 8px;
   }
 
   .mobile-preview-card {
@@ -2218,9 +2249,9 @@ input[type="range"].track {
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 1px solid var(--line-soft);
+    border: 0;
     border-radius: 8px;
-    background: var(--panel);
+    background: var(--tile);
     overflow: hidden;
     scroll-snap-align: center;
   }
@@ -2228,7 +2259,8 @@ input[type="range"].track {
   .mobile-preview-card .mock-ask,
   .mobile-preview-card .mock-command,
   .mobile-preview-card .mock-theme,
-  .mobile-preview-card .mock-quickstart {
+  .mobile-preview-card .mock-quickstart,
+  .mobile-preview-card .mock-unlock {
     width: 282px;
   }
 
@@ -2237,9 +2269,13 @@ input[type="range"].track {
     height: 333px;
   }
 
-  .mobile-preview-card .mock-pricing {
+  /* mobile pricing: only the Pro card (hide Starter), sized to the carousel */
+  .mobile-preview-card .mock-pricing-free .pricing-plan-motion:first-child {
+    display: none;
+  }
+
+  .mobile-preview-card .mock-pricing-free .pricing-plan {
     width: 282px;
-    height: 320px;
   }
 
   .mobile-preview-card .mock-upload {
@@ -2248,6 +2284,14 @@ input[type="range"].track {
 
   .mobile-preview-card .mock-generating {
     width: 282px;
+  }
+
+  .gen-full {
+    display: none;
+  }
+
+  .gen-short {
+    display: inline;
   }
 
   .mobile-shell > .footer {
@@ -2331,11 +2375,7 @@ input[type="range"].track {
   }
 
   .code-card--tall {
-    min-height: 143px;
-  }
-
-  .code-card pre {
-    max-height: 92px;
+    height: 143px;
   }
 }
 
