@@ -293,12 +293,7 @@ export function loadState(): DemoState {
         },
         'w',
       );
-      const presets = Array.isArray(root.presets)
-        ? root.presets.map((preset) => ({
-          id: typeof asRecord(preset).id === 'string' ? String(asRecord(preset).id) : newId(),
-          ...presetDataFrom(asRecord(preset).data ?? preset, 'Untitled'),
-        }))
-        : [];
+      const presets: StoredPreset[] = [];
       const activeId = normalizeActiveId(root.activeId, presets);
       return {
         version: 4,
@@ -316,12 +311,7 @@ export function loadState(): DemoState {
     if ((root.version === 2 || root.version === 3) && isRecord(recordAt(recordAt(root, 'working'), 'dark').effectParams)) {
       const theme: Theme = root.theme === 'light' ? 'light' : 'dark';
       const workingPreset = presetDataFrom({ name: 'w', ...recordAt(recordAt(root, 'working'), theme) }, 'w');
-      const presets = Array.isArray(root.presets)
-        ? root.presets.map((preset) => ({
-          id: typeof asRecord(preset).id === 'string' ? String(asRecord(preset).id) : newId(),
-          ...presetDataFrom({ name: asRecord(preset).name, themes: asRecord(preset).themes }, 'Untitled'),
-        }))
-        : [];
+      const presets: StoredPreset[] = [];
       const activeId = normalizeActiveId(root.activeId, presets);
       return {
         version: 4,

@@ -451,11 +451,14 @@ code {
   max-height: 100%;
   overflow-y: auto;
   overflow-x: hidden;
-  /* room so focus outlines / edge content aren't clipped by overflow-x: hidden */
-  padding: 2px 8px 2px 3px;
+  /* symmetric padding so rows fill the panel width; the scrollbar overlays the right
+     edge (native overlay) rather than reserving a column that pushes rows inward */
+  padding: 2px 3px;
 }
 
-/* Install list hides its scrollbar; the controls panel keeps a thin minimal one. */
+/* The install list hides its scrollbar. The controls panel uses the NATIVE overlay
+   scrollbar (no forced `scrollbar-width: thin`, which Chromium reserves as a column) so
+   it floats at the right edge and the rows flex to fill the frame. */
 .left-panel-body .install-left,
 .control-sheet .controls {
   scrollbar-width: none;
@@ -464,24 +467,6 @@ code {
 .left-panel-body .install-left::-webkit-scrollbar,
 .control-sheet .controls::-webkit-scrollbar {
   display: none;
-}
-
-.left-panel-body .controls {
-  scrollbar-width: thin;
-  scrollbar-color: var(--line-soft) transparent;
-}
-
-.left-panel-body .controls::-webkit-scrollbar {
-  width: 6px;
-}
-
-.left-panel-body .controls::-webkit-scrollbar-thumb {
-  background: var(--line-soft);
-  border-radius: 999px;
-}
-
-.left-panel-body .controls::-webkit-scrollbar-track {
-  background: transparent;
 }
 
 .install-panel {
@@ -494,12 +479,20 @@ code {
   gap: 8px;
 }
 
-.block-label,
 .group-heading {
   color: var(--muted);
   font-family: var(--font-sans);
   font-size: 13px;
   font-weight: 400;
+}
+
+/* Install section labels — Paper 5O1-0: 14px, full-strength text. */
+.block-label {
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1;
 }
 
 .code-card {
@@ -546,6 +539,69 @@ code {
 
 .code-card pre::-webkit-scrollbar {
   display: none;
+}
+
+/* Install-block heads — values from Paper 5O1-0. Step 2/3 are a single label row; the
+   Installation step stacks the label + "Requires WebGL" beside the framework toggle. */
+.install-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  align-self: stretch;
+}
+
+.install-head--installation {
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.install-head-text {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+}
+
+/* Framework toggle reuses the segmented control (.seg, .seg-indicator); here it spans
+   half the row, matching Paper's w-[round(50%,1px)]. */
+.seg.install-seg {
+  flex: 0 0 50%;
+}
+
+.install-note {
+  align-self: stretch;
+  color: var(--muted);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+/* Step-2 chip: preset name when pristine, "Edited" when dirty. Paper: 14px, --faint. */
+.preset-chip {
+  color: var(--faint);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1;
+}
+
+.docs-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--faint);
+}
+
+.docs-link-text {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1;
+  text-decoration: underline 1px var(--chip-strong);
+  text-underline-offset: 4px;
+}
+
+.docs-link:hover {
+  color: var(--text);
 }
 
 .copy-button {
@@ -2224,6 +2280,11 @@ input[type="range"].track {
     margin: 0 -16px;
     padding: 0 16px;
     display: flex;
+    align-items: stretch;
+    /* a definite height so the tiles can flex-fill it uniformly (an auto-height
+       scroll container makes "stretch" collapse to each tile's content height).
+       Sized for the tallest mock (pricing) + bloom clearance. */
+    height: 480px;
     overflow-x: auto;
     overscroll-behavior-x: contain;
     scrollbar-width: none;
@@ -2237,7 +2298,8 @@ input[type="range"].track {
   .mobile-copy {
     flex: 0 0 auto;
     display: flex;
-    align-items: center;
+    /* stretch the cards to the carousel height so every tile fills it uniformly */
+    align-items: stretch;
     gap: 8px;
     /* 8px after the last card so the loop seam keeps the rhythm (copyWidth includes it) */
     padding-right: 8px;
@@ -2393,7 +2455,7 @@ input[type="range"].track {
   }
 
   .code-card--tall {
-    height: 143px;
+    height: auto;
   }
 }
 

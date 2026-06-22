@@ -7,6 +7,7 @@ import {
   Check,
   ChevronDown,
   Copy,
+  ExternalLink,
   Eye,
   EyeOff,
   FilePlus,
@@ -31,7 +32,6 @@ import '@fontsource/public-sans/600.css';
 import '@fontsource/overpass-mono/400.css';
 import '@fontsource/overpass-mono/500.css';
 import '@fontsource/overpass-mono/600.css';
-import { Agentation } from 'agentation';
 import './style.css';
 
 import { VELOCITY_PRESETS } from '../src/core';
@@ -54,7 +54,6 @@ import type { DemoPreset, DemoState, PaletteRow, WorkingLook } from './model';
 
 type TabId = 'install' | 'playground';
 type SnapPoint = 'partial' | 'full';
-type CopyKind = 'react' | 'vanilla' | 'preset';
 
 const heroCopy = 'Frosted glass UI component with rich animated backlighting.';
 
@@ -118,44 +117,40 @@ function presetIdent(name: string): string {
   return /^[a-z]/.test(ident) && ident !== 'default' ? ident : 'myLook';
 }
 
-function codeFor(kind: CopyKind, state: DemoState): string {
+type Framework = 'react' | 'vanilla';
+
+// Step 2 of the install panel — how to get the *current* preset into your code. An
+// unmodified library preset is a one-line import from `glass-pulse-fx/presets`; the moment
+// you tune it in the playground it has nothing to import, so it becomes an inline literal.
+function presetBlock(framework: Framework, state: DemoState): string {
   const active = activePreset(state);
   const ident = presetIdent(active.data.name);
-  const currentPreset = presetFromLook(state.working, active.data.name);
-
-  if (kind === 'vanilla') {
-    return `import { createGlass } from 'glass-pulse-fx/core';
-import type { GlassPreset } from 'glass-pulse-fx/core';
-
-const ${ident}: GlassPreset = ${tsLiteral(currentPreset)};
-
-const glass = createGlass(document.querySelector('#target')!, {
-  preset: ${ident},
-  theme: '${state.theme}',
-});
-`;
+  const pkg = framework === 'react' ? 'glass-pulse-fx' : 'glass-pulse-fx/core';
+  const api = framework === 'react' ? 'GlassFx' : 'createGlass';
+  const importable = !isDirty(state) && libPresets.some((preset) => preset.id === state.activeId);
+  if (importable) {
+    return `import { ${api} } from '${pkg}';
+import { ${ident} } from 'glass-pulse-fx/presets';`;
   }
+  const literal = presetFromLook(state.working, active.data.name);
+  return `import { ${api} } from '${pkg}';
+import type { GlassPreset } from '${pkg}';
 
-  if (kind === 'preset') {
-    return `import type { GlassPreset } from 'glass-pulse-fx';
-
-export const ${ident}: GlassPreset = ${tsLiteral(currentPreset)};
-`;
-  }
-
-  return `import { GlassFx } from 'glass-pulse-fx';
-import type { GlassPreset } from 'glass-pulse-fx';
-
-const ${ident}: GlassPreset = ${tsLiteral(currentPreset)};
-
-export function Example() {
-  return (
-    <GlassFx preset={${ident}} radius={12}>
-      <button className="your-button">Your component</button>
-    </GlassFx>
-  );
+const ${ident}: GlassPreset = ${tsLiteral(literal)};`;
 }
-`;
+
+// Step 3 — apply the preset to your component.
+function wrapBlock(framework: Framework, state: DemoState): string {
+  const ident = presetIdent(activePreset(state).data.name);
+  if (framework === 'react') {
+    return `<GlassFx preset={${ident}} radius={12}>
+  <button className="btn">Your component</button>
+</GlassFx>`;
+  }
+  return `const glass = createGlass(
+  document.querySelector('#cta')!,
+  { preset: ${ident}, radius: 12 },
+);`;
 }
 
 function Wordmark(): React.JSX.Element {
@@ -221,13 +216,6 @@ function PresetPicker({ state, dirty, onSelect, onReset, compact = false }: Pres
               <option key={preset.id} value={preset.id}>{preset.data.name}</option>
             ))}
           </optgroup>
-          {state.presets.length > 0 && (
-            <optgroup label="My presets">
-              {state.presets.map((preset) => (
-                <option key={preset.id} value={preset.id}>{preset.data.name}</option>
-              ))}
-            </optgroup>
-          )}
           {!presets.length && <option value={defaultPreset.id}>{defaultPreset.data.name}</option>}
         </select>
         <ChevronDown size={12} aria-hidden="true" />
@@ -327,22 +315,73 @@ interface InstallContentProps {
 }
 
 function InstallContent({ state }: InstallContentProps): React.JSX.Element {
+  const [framework, setFramework] = React.useState<Framework>('react');
+  const active = activePreset(state);
+  const dirty = isDirty(state);
+  const presetSrc = presetBlock(framework, state);
+  const wrapSrc = wrapBlock(framework, state);
   return (
     <div className="install-panel">
       <div className="install-block">
-        <div className="block-label">Installation</div>
+        <div className="install-head install-head--installation">
+          <div className="install-head-text">
+            <span className="block-label">Installation</span>
+            <span className="install-note">Requires WebGL</span>
+          </div>
+          <div className="seg install-seg" role="tablist" aria-label="Framework">
+            {(['react', 'vanilla'] as const).map((fw) => {
+              const on = framework === fw;
+              return (
+                <button
+                  key={fw}
+                  type="button"
+                  role="tab"
+                  aria-selected={on}
+                  className={on ? 'is-active' : ''}
+                  onClick={() => setFramework(fw)}
+                >
+                  {on && <motion.span className="seg-indicator" layoutId="seg-framework" transition={copySpring} />}
+                  <span className="seg-label">{fw === 'react' ? 'React' : 'Vanilla'}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
         <div className="code-card">
           <code>npm install glass-pulse-fx</code>
           <CopyButton label="Copy install command" getText={() => 'npm install glass-pulse-fx'} />
         </div>
       </div>
+
       <div className="install-block">
-        <div className="block-label">Use this preset</div>
+        <div className="install-head">
+          <span className="block-label">Import current preset</span>
+          <span className="preset-chip">{dirty ? 'Edited' : active.data.name}</span>
+        </div>
         <div className="code-card code-card--tall">
-          <pre>{codeFor('react', state)}</pre>
-          <CopyButton label="Copy React snippet" getText={() => codeFor('react', state)} />
+          <pre>{presetSrc}</pre>
+          <CopyButton label="Copy preset" getText={() => presetSrc} />
         </div>
       </div>
+
+      <div className="install-block">
+        <span className="block-label">Wrap your component</span>
+        <span className="install-note">Apply GlassPulseFX to an existing component in your project.</span>
+        <div className="code-card code-card--tall">
+          <pre>{wrapSrc}</pre>
+          <CopyButton label="Copy usage" getText={() => wrapSrc} />
+        </div>
+      </div>
+
+      <a
+        className="docs-link"
+        href="https://github.com/JERRYJURR/glass-pulse-fx#readme"
+        target="_blank"
+        rel="noreferrer"
+      >
+        <span className="docs-link-text">View docs/reference</span>
+        <ExternalLink size={16} />
+      </a>
     </div>
   );
 }
@@ -1216,10 +1255,10 @@ function Footer(): React.JSX.Element {
       <div className="footer-inner">
         <span className="footer-copy">© 2026 Jerry Kou</span>
         <nav aria-label="Footer links">
-          <a href="#website">Website</a>
-          <a href="#x">X</a>
-          <a href="#email">Email</a>
-          <a href="#github">GitHub</a>
+          <a href="https://jerrykou.com" target="_blank" rel="noreferrer">Website</a>
+          <a href="https://x.com/jerryjurrr" target="_blank" rel="noreferrer">X</a>
+          <a href="mailto:jerry.y.kou@gmail.com">Email</a>
+          <a href="https://github.com/JERRYJURR/glass-pulse-fx" target="_blank" rel="noreferrer">GitHub</a>
         </nav>
       </div>
     </footer>
@@ -1421,12 +1460,6 @@ function App(): React.JSX.Element {
       <MobileShell {...controlsProps} onOpenControls={() => setSheetOpen(true)} onTheme={toggleTheme} />
       <ControlSheet {...controlsProps} open={sheetOpen} onClose={() => setSheetOpen(false)} />
       <Footer />
-      {import.meta.env.DEV && (
-        <Agentation
-          endpoint="http://localhost:4747"
-          onSessionCreated={(id) => console.info('[agentation] session', id)}
-        />
-      )}
     </>
   );
 }
