@@ -54,9 +54,9 @@
   --mobile-status: 62px;
   --mobile-nav: 56px;
 
-  --type-hero-desktop-size: 20px;
-  --type-hero-desktop-line: 30px;
-  --type-hero-desktop-weight: 300;
+  --type-hero-desktop-size: 16px;
+  --type-hero-desktop-line: 24px;
+  --type-hero-desktop-weight: 400;
   --type-hero-mobile-size: 20px;
   --type-hero-mobile-line: 26px;
   --type-hero-mobile-weight: 300;
@@ -376,6 +376,7 @@ code {
   font-weight: var(--type-hero-desktop-weight);
   letter-spacing: -0.025em;
   line-height: var(--type-hero-desktop-line);
+  text-wrap: pretty;
   text-shadow: 0 2px 3px rgb(0 0 0 / 0.2);
 }
 

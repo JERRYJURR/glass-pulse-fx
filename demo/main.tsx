@@ -55,7 +55,7 @@ import type { DemoPreset, DemoState, PaletteRow, WorkingLook } from './model';
 type TabId = 'install' | 'playground';
 type SnapPoint = 'partial' | 'full';
 
-const heroCopy = 'Frosted glass UI component with rich animated backlighting.';
+const heroCopy = 'Customizable UI library for illuminating components with an animated, pulsing backlight.';
 
 const tabItems: { id: TabId; label: string }[] = [
   { id: 'install', label: 'Install' },
