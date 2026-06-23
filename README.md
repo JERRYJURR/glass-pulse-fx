@@ -3,7 +3,7 @@
 > Frosted-glass UI surfaces lit by animated, original WebGL shaders.
 
 <div align="center">
-  <video src="https://github.com/JERRYJURR/glass-pulse-fx/raw/master/glasspulsevid.mp4" width="100%" controls muted></video>
+  <img src="https://github.com/JERRYJURR/glass-pulse-fx/raw/master/glasspulsevid.webp" width="520" alt="glass-pulse-fx animated demo">
 </div>
 
 Wrap any element — button, chip, card — and `glass-pulse-fx` paints a frosted-glass
