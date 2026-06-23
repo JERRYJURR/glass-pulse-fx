@@ -355,7 +355,7 @@ function InstallContent({ state }: InstallContentProps): React.JSX.Element {
 
       <div className="install-block">
         <div className="install-head">
-          <span className="block-label">Import current preset</span>
+          <span className="block-label">Import preset</span>
           <span className="preset-chip">{dirty ? 'Edited' : active.data.name}</span>
         </div>
         <div className="code-card code-card--tall">
@@ -365,8 +365,7 @@ function InstallContent({ state }: InstallContentProps): React.JSX.Element {
       </div>
 
       <div className="install-block">
-        <span className="block-label">Wrap your component</span>
-        <span className="install-note">Apply GlassPulseFX to an existing component in your project.</span>
+        <span className="block-label">Apply to your component</span>
         <div className="code-card code-card--tall">
           <pre>{wrapSrc}</pre>
           <CopyButton label="Copy usage" getText={() => wrapSrc} />
@@ -792,6 +791,76 @@ function Controls({ state, mutate }: ControlsProps): React.JSX.Element {
       </ControlGroup>
     </div>
   );
+}
+
+/* A thin overlay scrollbar for the desktop controls card. The native scrollbar is
+   hidden; this thumb is absolutely positioned over the card's right edge (so it never
+   reserves layout width) and is synced to / draggable against the `.controls` scroller. */
+function ControlsScrollbar(): React.JSX.Element {
+  const ref = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const thumb = ref.current;
+    const scroller = thumb?.parentElement?.querySelector<HTMLElement>('.controls');
+    if (!thumb || !scroller) return;
+
+    let hideTimer = 0;
+    const sync = () => {
+      const { scrollTop, scrollHeight, clientHeight } = scroller;
+      if (scrollHeight <= clientHeight + 1) {
+        thumb.style.height = '0px';
+        return;
+      }
+      const h = Math.max(28, (clientHeight / scrollHeight) * clientHeight);
+      const top = (scrollTop / (scrollHeight - clientHeight)) * (clientHeight - h);
+      thumb.style.height = `${h}px`;
+      thumb.style.transform = `translateY(${top}px)`;
+    };
+    const onScroll = () => {
+      sync();
+      thumb.classList.add('is-visible');
+      window.clearTimeout(hideTimer);
+      hideTimer = window.setTimeout(() => thumb.classList.remove('is-visible'), 1000);
+    };
+
+    sync();
+    scroller.addEventListener('scroll', onScroll, { passive: true });
+    const ro = new ResizeObserver(sync);
+    ro.observe(scroller);
+    const mo = new MutationObserver(sync);
+    mo.observe(scroller, { childList: true, subtree: true });
+
+    return () => {
+      scroller.removeEventListener('scroll', onScroll);
+      ro.disconnect();
+      mo.disconnect();
+      window.clearTimeout(hideTimer);
+    };
+  }, []);
+
+  const onPointerDown = (event: React.PointerEvent): void => {
+    const thumb = ref.current;
+    const scroller = thumb?.parentElement?.querySelector<HTMLElement>('.controls');
+    if (!thumb || !scroller) return;
+    event.preventDefault();
+    const startY = event.clientY;
+    const startScroll = scroller.scrollTop;
+    const range = scroller.scrollHeight - scroller.clientHeight;
+    const maxTop = scroller.clientHeight - thumb.offsetHeight;
+    const move = (moveEvent: PointerEvent): void => {
+      scroller.scrollTop = startScroll + ((moveEvent.clientY - startY) / maxTop) * range;
+    };
+    const up = (): void => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      document.body.style.userSelect = '';
+    };
+    document.body.style.userSelect = 'none';
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+
+  return <div className="controls-thumb" ref={ref} onPointerDown={onPointerDown} aria-hidden="true" />;
 }
 
 function useNearViewport<T extends HTMLElement>(rootMargin = '700px'): [React.RefObject<T>, boolean] {
@@ -1292,7 +1361,10 @@ function DesktopShell({ state, dirty, tab, onTab, onSelectPreset, onResetPreset,
                   <InstallContent state={state} />
                 </div>
               ) : (
-                <Controls state={state} dirty={dirty} onSelectPreset={onSelectPreset} onResetPreset={onResetPreset} mutate={mutate} />
+                <>
+                  <Controls state={state} dirty={dirty} onSelectPreset={onSelectPreset} onResetPreset={onResetPreset} mutate={mutate} />
+                  <ControlsScrollbar />
+                </>
               )}
             </motion.div>
           </AnimatePresence>

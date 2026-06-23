@@ -359,7 +359,9 @@ code {
   display: flex;
   flex-direction: column;
   gap: 32px;
-  overflow: hidden;
+  /* clip (not hidden) so the controls' overlay scrollbar can sit in the 32px gutter */
+  overflow: clip;
+  overflow-clip-margin: 24px;
 }
 
 .right-rail {
@@ -441,9 +443,12 @@ code {
 }
 
 .left-panel-body {
+  position: relative;
   min-height: 0;
   flex: 1;
-  overflow: hidden;
+  /* clip (not hidden) so the overlay scrollbar thumb can paint into the right gutter */
+  overflow: clip;
+  overflow-clip-margin: 24px;
 }
 
 .left-panel-body .install-left,
@@ -451,26 +456,65 @@ code {
   max-height: 100%;
   overflow-y: auto;
   overflow-x: hidden;
-  /* symmetric padding so rows fill the panel width; the scrollbar overlays the right
-     edge (native overlay) rather than reserving a column that pushes rows inward */
+}
+
+.left-panel-body .install-left {
   padding: 2px 3px;
 }
 
-/* The install list hides its scrollbar. The controls panel uses the NATIVE overlay
-   scrollbar (no forced `scrollbar-width: thin`, which Chromium reserves as a column) so
-   it floats at the right edge and the rows flex to fill the frame. */
+/* Playground controls sit in a card (Paper MQ8-0): subtle fill, rounded, 8/12 padding.
+   The native overlay scrollbar floats over the right padding so rows still fill the width. */
+.left-panel-body .controls {
+  /* flush with the rest of the sidebar (preset picker / tabs); the overlay thumb floats
+     over the right edge rather than taking a gutter */
+  padding: 2px 0;
+}
+
+/* Native scrollbars are hidden everywhere in the panels: the install list has none, and
+   the desktop controls card uses the custom overlay thumb below (.controls-thumb). */
 .left-panel-body .install-left,
+.left-panel-body .controls,
 .control-sheet .controls {
   scrollbar-width: none;
 }
 
 .left-panel-body .install-left::-webkit-scrollbar,
+.left-panel-body .controls::-webkit-scrollbar,
 .control-sheet .controls::-webkit-scrollbar {
   display: none;
 }
 
+/* Thin overlay scrollbar for the desktop controls card — absolutely positioned over the
+   card's right edge (reserves no width), no track box, fades in on hover / while scrolling.
+   Height + offset are driven by ControlsScrollbar. */
+.controls-thumb {
+  position: absolute;
+  top: 0;
+  /* sits in the gutter to the right of the panel (not over the content). The rail/body
+     use overflow: clip + clip-margin so this can paint past their right edge. */
+  right: -16px;
+  width: 4px;
+  height: 0;
+  border-radius: 999px;
+  background: var(--line-soft);
+  opacity: 0;
+  transition: opacity 220ms ease;
+  cursor: grab;
+  touch-action: none;
+  z-index: 2;
+}
+
+.controls-thumb:active {
+  cursor: grabbing;
+}
+
+.left-panel-body:hover .controls-thumb,
+.controls-thumb.is-visible {
+  opacity: 1;
+}
+
 .install-panel {
-  gap: 24px;
+  gap: 32px;
 }
 
 .install-block {
@@ -2451,7 +2495,7 @@ input[type="range"].track {
   }
 
   .install-panel {
-    gap: 16px;
+    gap: 24px;
   }
 
   .code-card--tall {
