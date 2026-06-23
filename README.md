@@ -4,10 +4,6 @@ https://github.com/user-attachments/assets/ab078f4b-b51b-4b83-834e-a85bf3da4480
 
 > Customizable UI library for illuminating components with an animated, pulsing backlight.
 
-<div align="center">
-  <video src="https://github.com/JERRYJURR/glass-pulse-fx/raw/master/glasspulsevid.mp4" width="100%" controls muted></video>
-</div>
-
 Wrap any element — button, chip, card — and `glass-pulse-fx` paints a frosted-glass
 material **on top of it**: a shared animated shader, a `backdrop-filter` frost, an opaque
 blurred core, an optional lit rim, and two bloom layers that spill glow past the
